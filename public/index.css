@@ -1,0 +1,69 @@
+body{
+  background-color: #313131;
+  margin: 1rem;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif
+}
+
+@import url('https://fonts.googleapis.com/css2?family=Roboto&display=swap');
+
+#wrapper {
+  /* height: calc(100vh - 2rem); */
+  height: 100%;
+  max-width: 900px;
+  background: #414141;
+  box-sizing: border-box;
+  border-radius: 5px;
+  position: relative;
+  left: 0;
+  right: 0;
+  margin: auto;
+}
+
+#playing {
+  position: absolute;
+  margin: auto;
+  margin-top: 0.5rem;
+  max-width: 800;
+  padding: 0.5rem;
+  padding-right: .8rem;
+  background: #ca3e47;
+  border-radius: 5px;
+  left: 50%;
+  -webkit-transform: translateX(-50%);
+  transform: translateX(-50%);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+#albumart {
+  width: 2.6rem;
+  height: 2.6rem;
+  float: left;
+  background: white;
+  margin-right: .5rem;
+}
+
+#track {
+  color: #e6e6e6;
+}
+
+#artist {
+  color: #bfbfbf;
+}
+
+#nav {
+  display: flex;
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+}
+
+.nav-item {
+  background: #525252;
+  width: 100%;
+  color: #e6e6e6;
+  padding: 1rem;
+  text-align: center;
+  font-weight: bold;
+}
