@@ -1,24 +1,132 @@
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Radio Rolnik Nysa</title>
 
-  <link rel="stylesheet" href="index.css">
+  <link rel="stylesheet" href="/index.css">
+  <link rel="stylesheet" href="fontello.css">
+  <script src="/index.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+
+  <!-- Global site tag (gtag.js) - Google Analytics -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=UA-150749288-3"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() { dataLayer.push(arguments); }
+    gtag('js', new Date());
+
+    gtag('config', 'UA-150749288-3', { 'page_path': location.pathname + location.hash });
+  </script>
+
+
+  <script>
+    window.fbAsyncInit = function () {
+      FB.init({
+        appId: '299948451430584',
+        cookie: true,
+        xfbml: true,
+        version: 'v8.0'
+      });
+
+      FB.AppEvents.logPageView();
+
+    };
+
+    (function (d, s, id) {
+      var js, fjs = d.getElementsByTagName(s)[0];
+      if (d.getElementById(id)) { return; }
+      js = d.createElement(s); js.id = id;
+      js.src = "https://connect.facebook.net/en_US/sdk.js";
+      fjs.parentNode.insertBefore(js, fjs);
+    }(document, 'script', 'facebook-jssdk'));
+  </script>
 
 </head>
+
 <body>
+  <div id="offline" class=''>Offline <i class="icon-unlink"></i></div>
+  </fb:login-button>
   <div id="wrapper">
-    <div id="playing">
-      <div id="albumart"></div>
-      <span id="track">Never gonna give you up</span>
-      <br>
-      <span id="artist">Rick Astley</span>
+    <div id="player">
+      <div class="current">
+        <div class="track">
+          <div class="albumart"></div>
+          <span class="title">-</span>
+          <br>
+          <span class="artist">-</span>
+        </div>
+      </div>
+      <div class="status">
+        <i class="volume icon-volume-off"></i>
+      </div>
+
     </div>
+
+
+    <div id="panes">
+      <div class="pane history active">
+        <div id="previous" class="list">
+        </div>
+      </div>
+
+      <div class="pane search">
+        <div class="query">
+          <input type="search" class="input" placeholder="Wyszukaj" autofocus>
+          <div class="icons">
+            <span class="info"></span>
+            <i class="icon-youtube"></i>
+            <i class="icon-soundcloud-1"></i>
+            <i class="icon-spotify-1"></i>
+            <i class="icon-search"></i>
+          </div>
+        </div>
+        <div id="results" class="list">
+
+        </div>
+      </div>
+      <div class="pane top">
+        <div class="list"></div>
+      </div>
+      <div class="pane preview">
+        <div class="albumart"></div>
+        <div class="title">-</div>
+        <div class="artists">-</div>
+        <div class="buttons">
+          <i class="icon-thumbs-up"></i>
+          <i class="icon-thumbs-down"></i>
+          <i class="icon-link"></i>
+          <i class="icon-spotify-1"></i>
+          <i class="icon-flag"></i>
+        </div>
+        <table class="params">
+          <tbody>
+            <tr>
+              <td>Głosy</td>
+              <td>123123</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="pane settings">
+        <div id="profile">
+          <div id="profilePic"></div>
+          <span id="username">-</span>
+        </div>
+        <!-- <div id="fbLogin"></div> -->
+        <fb:login-button scope="public_profile,email" onlogin="checkLoginState();" id="fbLogin" class="hidden">
+      </div>
+    </div>
+
     <div id="nav">
-      <div id="history" class="nav-item">Historia</div>
-      <div id="request" class="nav-item">Propozycje</div>
+      <div class="nav-item history active" data-target='history'>Historia</div>
+      <div class="nav-item search" data-target='search'>Wyszukaj</div>
+      <div class="nav-item top" data-target='top'>Top</div>
+      <div class="nav-item preview" data-target='preview'>Utwór</div>
+      <div class="nav-item settings" data-target='settings'><i class="icon-cog-alt"></i></div>
     </div>
   </div>
 </body>
+
 </html>
