@@ -11,16 +11,16 @@ mongoose.connect("mongodb://odin.home.mathew.pl:27017/radio-rolnik", {
   useUnifiedTopology: true,
   useFindAndModify: false
 });
-db = mongoose.connection
+var database = mongoose.connection
 
-db.on('error', err => {
+database.on('error', err => {
   throw err
 });
-db.once('open', () => {
+database.once('open', () => {
   pretty.log(`DB connected`)
 });
 
-var trackSchema = new mongoose.Schema({
+var Track = mongoose.model('Track', new mongoose.Schema({
   id: String,
   title: String,
   album: {
@@ -33,27 +33,29 @@ var trackSchema = new mongoose.Schema({
   },
   artists: Array,
   duration: Number,
-  source: String
-}, { collection: 'tracks' })
+  source: String,
+  explicit: Boolean,
+  banned: Boolean
+}, { collection: 'tracks' })),
 
-var Track = mongoose.model('Track', trackSchema)
+  Vote = mongoose.model('Vote', new mongoose.Schema({
+    uid: String,
+    tid: String,
+    flag: String,
+    comment: String
+  }, { collection: 'votes', timestamps: { createdAt: 'createdAt' } })),
 
-var userSchema = new mongoose.Schema({
-  id: String,
-  name: String,
-  mail: String,
-  token: String
-}, { collection: 'users' })
+  User = mongoose.model('User', new mongoose.Schema({
+    id: String,
+    name: String,
+    mail: String,
+    token: String,
+    admin: Number
+  }, { collection: 'users' })),
 
-var voteSchema = new mongoose.Schema({
-  uid: String,
-  tid: String,
-  flag: String,
-  comment: String
-}, { collection: 'votes', timestamps: { createdAt: 'createdAt' } })
-
-var Vote = mongoose.model('Vote', voteSchema),
-  User = mongoose.model('User', userSchema)
+  Previous = mongoose.model('Previous', new mongoose.Schema({
+    tid: String
+  }, { collection: 'history', timestamps: { createdAt: 'createdAt', updatedAt: false } }))
 
 module.exports = {
   users: {
@@ -91,18 +93,25 @@ module.exports = {
     }
   },
   votes: {
-    timeValid: 60 * 60 * 12, // seconds
-    add(user, track, flag, comment) {
-      pretty.log(`'${user.name}' voted '${flag}' on '${track.title}'`)
+    timeValid: 60 * 60 * 12 * 1e3, // ms
+    add(user, track, flag) {
       return new Promise((resolve, reject) => {
-        Vote.create({
-          uid: user.id,
-          tid: track.id,
-          flag: flag,
-          comment: comment
-        }, function (err, vote) {
-          resolve(vote)
+        if (typeof user == 'undefined') return reject(new Error("Not authorized"))
+        this.validUser(user, track.id).then(flags => {
+          if (flags[flag]) {
+            reject(new Error("Already voted"))
+          } else {
+            Vote.create({
+              uid: user.id,
+              tid: track.id,
+              flag: flag
+            }).then(vote => {
+              resolve(vote)
+              pretty.log(`'${user.name}' voted '${flag}' on '${track.title}'`)
+            })
+          }
         })
+
       })
     },
     validUser(user, tid) {
@@ -112,10 +121,9 @@ module.exports = {
           uid: user.id,
           tid: tid,
           createdAt: {
-            $gt: new Date(new Date().getTime() - 12 * 60 * 60 * 1e3)
+            $gt: new Date(new Date().setHours(0, 0, 0))
           }
         }, function (err, votes) {
-          // console.log(votes.map(vote => [vote.tid, vote.flag]))
           resolve({
             up: !!votes.find(vote => vote.flag == 'up'),
             down: !!votes.find(vote => vote.flag == 'down'),
@@ -124,12 +132,16 @@ module.exports = {
         })
       })
     },
-    validTrack(track) { },
     validAll() {
       return new Promise((resolve, reject) => {
+        var monday = new Date();
+        monday.setHours(0, 0, 0)
+        monday.setDate(monday.getDate() - (monday.getDay() + 6) % 7);
         Vote.find({
           createdAt: {
-            $gt: new Date(new Date().getTime() - 12 * 60 * 60 * 1e3)
+            // $gt: new Date(new Date().getTime() - this.timeValid)
+            // $gt: new Date(new Date().setHours(0, 0, 0))
+            $gt: monday
           }
         }).then(function (votes) {
           let results = {}
@@ -150,9 +162,7 @@ module.exports = {
         Track.findOne({
           id: id
         }).then(track => {
-          if(track === null){
-            reject(new Error(`Track not found`))
-          }
+          if (track === null) return reject(new Error(`Tracks: ${id} not found`))
           resolve(track)
         }).catch(err => {
           reject(err)
@@ -162,22 +172,24 @@ module.exports = {
     add(track) {
       return new Promise((resolve, reject) => {
         Track.findOneAndUpdate(
-          {id: track.id}, // find
+          { id: track.id }, // find
           {
             id: track.id,
             title: track.title,
             album: track.album,
             artists: track.artists,
             duration: track.duration,
-            source: track.source
+            source: track.source,
+            explicit: track.explicit,
+            banned: track.banned || false,
           }, // update
           { upsert: true }) // create if doesn't exist
-        .then(track => {
-          resolve(track)
-        })
+          .then(track => {
+            resolve(track)
+          })
 
 
-          return
+        return
         Track.create({
           id: track.id,
           title: track.title,
@@ -187,6 +199,24 @@ module.exports = {
           source: track.source
         }).then(track => {
           resolve(track)
+        })
+      })
+    }
+  },
+  history: {
+    get() {
+      return new Promise((resolve, reject) => {
+        Previous.find({}, {}, { limit: 20 }).then(previous => {
+          resolve(previous)
+        })
+      })
+    },
+    add(tid) {
+      return new Promise((resolve, reject) => {
+        Previous.create({
+          tid: tid
+        }).then(previous => {
+          resolve(previous)
         })
       })
     }

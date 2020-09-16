@@ -1,14 +1,20 @@
-<html lang="en">
+<!DOCTYPE html>
+<html lang="pl">
 
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Radio Rolnik Nysa</title>
+  <meta name="theme-color" content="#ca3e47">
+  <meta name="description" content="Radio Rolnik Nysa">
+  <title>radio-rolnik</title>
 
   <link rel="stylesheet" href="/index.css">
   <link rel="stylesheet" href="fontello.css">
   <script src="/index.js"></script>
   <script src="/socket.io/socket.io.js"></script>
+  <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
+  <link rel="apple-touch-icon" href="/media/icon_192.png">
+  <link rel="manifest" href="/manifest.json">
 
   <!-- Global site tag (gtag.js) - Google Analytics -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=UA-150749288-3"></script>
@@ -47,10 +53,11 @@
 
 <body>
   <div id="offline" class=''>Offline <i class="icon-unlink"></i></div>
-  </fb:login-button>
+  <div id="modals">
+  </div>
   <div id="wrapper">
     <div id="player">
-      <div class="current">
+      <div class="current off">
         <div class="track">
           <div class="albumart"></div>
           <span class="title">-</span>
@@ -59,11 +66,10 @@
         </div>
       </div>
       <div class="status">
-        <i class="volume icon-volume-off"></i>
+        <i class="volume icon-stop-circle"></i>
       </div>
 
     </div>
-
 
     <div id="panes">
       <div class="pane history active">
@@ -78,7 +84,7 @@
             <span class="info"></span>
             <i class="icon-youtube"></i>
             <i class="icon-soundcloud-1"></i>
-            <i class="icon-spotify-1"></i>
+            <i class="icon-spotify-1 active"></i>
             <i class="icon-search"></i>
           </div>
         </div>
@@ -86,45 +92,84 @@
 
         </div>
       </div>
-      <div class="pane top">
+
+      <div class="pane chart">
         <div class="list"></div>
       </div>
+
       <div class="pane preview">
         <div class="albumart"></div>
         <div class="title">-</div>
         <div class="artists">-</div>
-        <div class="buttons">
+        <div class="buttons disabled">
           <i class="icon-thumbs-up"></i>
           <i class="icon-thumbs-down"></i>
           <i class="icon-link"></i>
-          <i class="icon-spotify-1"></i>
+          <i class="icon-music"></i>
           <i class="icon-flag"></i>
         </div>
         <table class="params">
-          <tbody>
-            <tr>
-              <td>Głosy</td>
-              <td>123123</td>
-            </tr>
-          </tbody>
         </table>
       </div>
+
       <div class="pane settings">
         <div id="profile">
           <div id="profilePic"></div>
-          <span id="username">-</span>
+          <span id="username">~</span>
         </div>
-        <!-- <div id="fbLogin"></div> -->
-        <fb:login-button scope="public_profile,email" onlogin="checkLoginState();" id="fbLogin" class="hidden">
+        <table class="params"></table>
+        <div class="actions">
+          <div data-target='fb'>
+            Zaloguj się przez Facebook
+            <!-- <fb:login-button class="fb_button" length="long" size="large" scope="public_profile,email"
+              onlogin="auth.fbReq();" class="hidden">
+              <span style="margin-right: 10px;">Zaloguj się przez Facebook</span>
+            </fb:login-button> -->
+
+            <!-- <div class="fb-login-button" data-size="medium" data-button-type="login_with" data-layout="default" data-auto-logout-link="false" data-use-continue-as="true" data-width="" onlogin="auth.fbReq();"></div> -->
+          </div>
+          <div data-target='autologin'> Automatyczne logowanie </div>
+          <div data-target='forget'> Zapomnij mnie </div>
+        </div>
+        <div class="about">
+          <div class="section">Regulamin:
+            <div class="value"><a target="_blank" href="/regulamin.html">Regulamin</a></div>
+          </div>
+          <div class="section">Facebook
+            <div class="value"><a target="_blank" href="https://www.facebook.com/Radio-Rolnik-Nysa-116248583541852">Radio Rolnik Nysa</a></div>
+          </div>
+          <div class="section">E-Mail
+            <div class="value"><a target="_blank" href="mailto:radio-rolnik@mtps.pl">radio-rolnik@mtps.pl</a></div>
+          </div>
+          <div class="section">Wersja
+            <div class="value">v1.1.0</div>
+          </div>
+        </div>
+
       </div>
     </div>
 
     <div id="nav">
-      <div class="nav-item history active" data-target='history'>Historia</div>
-      <div class="nav-item search" data-target='search'>Wyszukaj</div>
-      <div class="nav-item top" data-target='top'>Top</div>
-      <div class="nav-item preview" data-target='preview'>Utwór</div>
-      <div class="nav-item settings" data-target='settings'><i class="icon-cog-alt"></i></div>
+      <div class="button active" data-target='history'>
+        <i class="icon-align-left"></i>
+        <span class="label">Historia</span>
+      </div>
+      <div class="button" data-target='search'>
+        <i class="icon-search"></i>
+        <span class="label">Wyszukaj</span>
+      </div>
+      <div class="button" data-target='chart'>
+        <i class="icon-list-numbered"></i>
+        <span class="label">Top</span></div>
+      <div class="button" data-target='preview'>
+        <i class="icon-info"></i>
+        <span class="label">Utwór</span></div>
+      <div class="button" data-target='settings'>
+        <i class="icon-cog-alt"></i>
+        <span class="label">Ustawienia</span></div>
+      <div class="button hidden" data-target='admin'>
+        <i class="icon-flag"></i>
+        <span class="label">Admin</span></div>
     </div>
   </div>
 </body>

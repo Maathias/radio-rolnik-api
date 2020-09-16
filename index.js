@@ -7,16 +7,18 @@ const express = require('express'),
   pretty = require('pretty-log'),
   io = require('socket.io'),
   crypto = require('crypto'),
-  Spotify = require('spotify-web-api-node'),
+  SpotifyWebApi = require('spotify-web-api-node'),
   db = require('./db');
-const prettyLog = require('pretty-log');
 
 class Track {
-  constructor(source, data) {
+  constructor(data, source) {
     this.source = source
     switch (source) {
       case 'spotify': this._spotify(data); break;
+      case 'db': this._db(data); break;
     }
+
+    this._listen()
 
     this.votes = null
     this.placement = null
@@ -25,6 +27,17 @@ class Track {
       down: false,
       report: false
     }
+  }
+
+  _db(data) {
+    this.source = data.source
+    this.album = data.album
+    this.artists = data.artists
+    this.id = data.id
+    this.duration = data.duration
+    this.title = data.title
+    this.banned = data.banned
+    this.explicit = data.explicit
   }
 
   _spotify(data) {
@@ -41,6 +54,16 @@ class Track {
     this.id = data.id
     this.duration = data.duration_ms
     this.title = data.name
+    this.explicit = data.explicit
+    this.banned = false
+  }
+
+  _listen() {
+    switch (this.source) {
+      case 'spotify':
+        this.listen = `https://open.spotify.com/track/${this.id}`
+        break;
+    }
   }
 }
 
@@ -50,6 +73,7 @@ class User {
     this.name = user.name
     this.mail = user.mail
     this.token = user.token
+    this.admin = user.admin
   }
 
   info() {
@@ -57,16 +81,17 @@ class User {
       id: this.id,
       name: this.name,
       email: this.email,
-      token: this.token
+      token: this.token,
+      admin: this.admin
     }
   }
 }
 
 function apiSearch(id) {
   return new Promise((resolve, reject) => {
-    if (typeof id != 'string') reject(new Error('Incorrect id'))
+    if (typeof id != 'string') return reject(new Error('Incorrect id'))
     spotify.getTrack(id).then(data => {
-      resolve(new Track('spotify', data.body))
+      resolve(data.body)
     }).catch(err => {
       reject(err)
     })
@@ -78,7 +103,7 @@ function refreshToken() {
   spotify.clientCredentialsGrant().then(
     function (data) {
       pretty.log({
-        data: `Spotify: New token granted`,
+        data: `Spotify: new token granted`,
         action: 'info'
       })
 
@@ -100,7 +125,7 @@ function refreshToken() {
     },
     function (err) {
       pretty.log({
-        data: 'Something went wrong when retrieving an access token',
+        data: 'Spotify: something went wrong when retrieving an access token',
         action: 'error'
       });
     }
@@ -109,58 +134,72 @@ function refreshToken() {
 
 const credentials = {
   spotify: require('./spotify-cred.json')
-},
-  previous = {
-    tracks: [],
-    new(track) {
-      if (Object.keys(track).length < 1) return
-      pretty.log(`New track`)
-      this.tracks.unshift(track)
-      this._send(track)
-    },
-    _send(track) {
-      pretty.log(`Updating previous history`)
-      server.emit('previous', {
-        new: track.id
-      })
-    },
-    get() {
-      if (this.tracks.length < 1) return []
-      return this.tracks.slice(0, 10).map(track => track.id)
+}
+
+const Previous = {
+  tracks: [],
+  new(tid, played) {
+    // if (Object.keys(tid).length < 1) return
+    pretty.log(`Previous: new track`, 2)
+
+    var previous = { tid: tid, played: played.getTime() }
+    this.tracks.push(previous)
+    // tid.played = played.getTime()
+    // this.tracks.unshift(tid)
+    this._send(previous)
+  },
+  _send(previous) {
+    // pretty.log(`Previous: updating previous history`)
+    server.emit('previous', {
+      new: previous,
+    })
+  },
+  async update() {
+    for (previous of await db.history.get()) {
+      this.new(previous.tid, previous.createdAt)
     }
   },
-  player = {
+  get() {
+    if (this.tracks.length < 1) return []
+    return {
+      all: this.tracks.slice(0, 20)
+    }
+  }
+},
+  Player = {
     now: {},
-    status: 'playing',
+    status: 'paused',
     set(track) {
-      previous.new(this.now)
+      Previous.new(this.now.id, new Date)
       this.now = track
       server.emit('player', {
         tid: this.now.id,
         status: this.status
       })
+      db.history.add(track.id)
     },
-    status(status) {
+    update(status) {
       this.status = status
       server.emit('player', {
         status: this.status
       })
     },
   },
-  tracks = {
+  Tracks = {
     _list: {},
     get(id) {
       return new Promise((resolve, reject) => {
         if (!this._list[id]) { // check for track in cache
-          db.tracks.get(id).then(track => { // track not in cache, query db
-            this.set(track)
-            resolve(track)
+          db.tracks.get(id).then(tdata => { // track not in cache, query db
+            this.set(tdata, 'db')
+            resolve(this._list[id])
           }).catch(err => { // track not in db, query api
-            apiSearch(id).then(track => {
-              this.set(track) // add to cache
-              db.tracks.add(track) // add to db
-              resolve(track)
-            }).catch(err => {
+            apiSearch(id).then(tdata => {
+              this.set(tdata, 'spotify')
+              db.tracks.add(this._list[id]) // add to db
+              resolve(this._list[id])
+            }).catch(err => { // not in api, reject
+              reject(err)
               pretty.log({ data: err.message, action: 'error' })
             })
           })
@@ -169,33 +208,100 @@ const credentials = {
         }
       })
     },
-    set(track) {
-      this._list[track.id] = track
-      return track.id
+    set(tdata, source) {
+      this._list[tdata.id] = new Track(tdata, source)
+      return tdata.id
     }
   },
-  chart = {
-    _list: [],
-    update() {
-      db.votes.validAll().then(tids => {
-        this._list = (Object.keys(tids).sort(function (a, b) { return tids[a] - tids[b] })).reverse()
-        for (let tid in tids) {
-          tracks.get(tid).then(track => {
-            track.votes = tids[tid]
-            track.placement = this._list.indexOf(tid) + 1
-          })
+  Chart = {
+    tids: [],
+    values: {},
+    _serial: 0,
+    _sentAt: null,
+    get serial(){ return this._serial},
+    set serial(value){
+      this._serial = value
+      if(this._serial - this._sentAt > 5) {
+        this.update()
+        this.changed = false
+        return
+      }
+      this.changed = true
+    },
+    changed: true,
+    delay: 10e3,
+    interval() {
+      if(this.changed) this.update()
+      this.changed = false
+      setTimeout(function () { Chart.interval() }, this.delay)
+    },
+    async update() {
+      var values = await db.votes.validAll()
+      this.values = values
+      this.tids = (Object.keys(values).sort(function (a, b) { return values[a] - values[b] })).reverse()
+      for (let tid in values) {
+        let track = await Tracks.get(tid)
+        // tracks.get(tid).then(track => {
+        //   track.votes = values[tid]
+        //   track.placement = this.tids.indexOf(tid) + 1
+        // })
+        if (track.banned) {
+          this.tids.splice(this.tids.indexOf(tid), 1)
+          continue
         }
-        return this._list
-      })
+        track.votes = values[tid]
+        track.placement = this.tids.indexOf(tid) + 1
+      }
+      this.changed = false
+      this._sentAt = this._serial
+      server.emit('chart', this.get())
     },
     get() {
-      return this._list
+      return {
+        tids: this.tids,
+        values: this.values,
+        serial: this.serial
+      }
+    },
+  },
+  Stats = {
+    _online: 0,
+    _auth: 0,
+    _authed: {},
+    get(id){
+      return {
+        'online': this._online,
+        'auth': this._auth
+      }[id]
+    },
+    online(){
+      return this._online
+    },
+    connect(){
+      this._online++
+    },
+    disconnect(){
+      this._online--
+    },
+    auth(socket){
+      if(!this._authed[socket.user.id]) this._authed[socket.user.id] = {}
+      this._authed[socket.user.id][socket.id] = {
+        user: socket.user,
+        socket: socket
+      }
+      this._auth++
+    },
+    deauth(socket){
+      if(!socket.user) return
+      delete this._authed[socket.user.id][socket.id]
+      this._auth--
     }
   }
 
-var spotify = new Spotify({
+var spotify = new SpotifyWebApi({
   clientId: credentials.spotify.clientId,
   clientSecret: credentials.spotify.clientSecret,
+  redirectUri: "https://radio-rolnik.mtps.pl/logedin"
 })
 
 if (new Date().getTime() >= credentials.spotify.lastToken.expires) {
@@ -240,93 +346,177 @@ www.on('error', function (error) {
 });
 
 www.on('listening', function () {
-  pretty.log(`Listening on ${port}`)
+  pretty.log(`www: listening on ${port}`)
 });
 
-setInterval(function () {
-  chart.update()
-  server.emit('top', chart.get())
-}, 2e3)
+// app.get('/login', function (req, res) {
+//   var scopes = ['user-read-private', 'user-read-email'],
+//     redirect = spotify.createAuthorizeURL(scopes, 'what')
 
-tracks.get('11dFghVXANMlKmJXsNCbNl').then(track => player.set(track))
+//   res.redirect(redirect)
+//   // res.redirect('https://accounts.spotify.com/authorize' +
+//   //   '?response_type=code' +
+//   //   '&client_id=' + credentials.spotify.clientId +
+//   //   (scopes ? '&scope=' + encodeURIComponent(scopes) : '') +
+//   //   '&redirect_uri=' + encodeURIComponent('https://radio-rolnik.mtps.pl/logedin'));
+// });
+
+// app.get('/logedin', function (req, res) {
+//   console.log(req.query.code)
+//   spotify.authorizationCodeGrant(req.query.code).then(
+//     function (data) {
+//       console.log('The token expires in ' + data.body['expires_in']);
+//       console.log('The access token is ' + data.body['access_token']);
+//       console.log('The refresh token is ' + data.body['refresh_token']);
+
+//       // Set the access token on the API object to use it in later calls
+//       spotify.setAccessToken(data.body['access_token']);
+//       spotify.setRefreshToken(data.body['refresh_token']);
+//     },
+//     function (err) {
+//       console.log('Something went wrong!', err);
+//     }
+//   );
+// })
+
+// setInterval(function () {
+//   console.log(Stats._authed)
+// }, 5e3)
+
+Chart.interval()
+Chart.update()
+Previous.update()
+
+// Tracks.get('7GhIk7Il098yCjg4BQjzvb').then(track => {
+//   Player.set(track)
+//   Tracks.get('6habFhsOp2NvshLv26DqMb').then(track => {
+//     Player.set(track)
+//     Tracks.get('3yfqSUWxFvZELEM4PmlwIR').then(track => {
+//       Player.set(track)
+//     })
+//   })
+// })
 
 server.on('connection', socket => {
-  pretty.log('Socket connected');
+
+  Stats.connect()
+  pretty.log(`Socket: '${socket.id}' '${socket.handshake.headers["x-real-ip"]}' connected`, 3);
+
+  socket.on('disconnect', function () {
+    Stats.disconnect()
+    if(socket.user) Stats.deauth(socket)
+    pretty.log(`Socket: '${socket.id}' disconnected`, 3)
+  })
 
   socket.on('player', function () {
     socket.emit('player', {
-      tid: player.now.id,
-      status: player.status
+      tid: Player.now.id,
+      status: Player.status
     })
   })
 
   socket.on('previous', function () {
-    socket.emit('previous', {
-      all: previous.get()
-    })
+    socket.emit('previous', Previous.get())
+  })
+
+  socket.on('clear', function(data){
+      Stats.deauth(socket)
+      socket.user = undefined
+      // socket.emit('auth', { // demand token clear
+      //   clear: true
+      // })
   })
 
   socket.on('auth', function (tokens) {
+    if (typeof tokens != 'object') return // validate input
+
     if (tokens.local) {
-      db.users.login(tokens.local).then(user => {
-        socket.user = new User(user)
-        pretty.log(`Socket authenticated by token.local as '${socket.user.name}'`)
+      if (typeof tokens.local != 'string') return // validate token
+      db.users.login(tokens.local).then(udata => { // get user from db
+        socket.user = new User(udata)
         socket.emit('auth', socket.user.info())
-      }).catch(err => {
-        console.log('not in db')
-        socket.emit('auth', {
+        pretty.log(`Socket: '${socket.id}' auth by token.local as '${socket.user.name}'`, 3)
+        Stats.auth(socket)
+      }).catch(err => { // invalid token.local
+        socket.user = undefined
+        socket.emit('auth', { // demand token clear
           clear: true
         })
+        pretty.log(`Socket: '${socket.id}' auth by token.local failed`, 3)
       })
     } else if (tokens.fb) {
+      if (typeof tokens.fb != 'string') return // validate token
+
       https.get(`https://graph.facebook.com/v8.0/me?fields=id,name,email&access_token=${tokens.fb}`, (resp) => {
         let data = ''
         resp.on('data', (chunk) => data += chunk)
 
         resp.on('end', () => {
           let creds = JSON.parse(data)
-          if (creds.error) return console.error(new Error(creds.error.message))
-          db.users.get(creds.id).then(user => {
+          if (creds.error) {socket.emit('meta', {
+            type: 'error',
+            action: 'auth',
+            message: `Auth: there was and error with your facebook token: ${creds.error}`
+          })
+            return pretty.log({ data: creds.error.message, action: 'error' })
+          }
+
+          db.users.get(creds.id).then(user => { // user found in db
             return user
-          }).catch(async err => {
-            pretty.log(`Creating new user with token.fb`)
+          }).catch(async err => { // not in db, add user
+            pretty.log(`Auth: adding new user '${creds.name}'`, 3)
             return await db.users.add(creds)
-          }).then(user => {
+          }).then(user => { // finalize auth
             socket.user = new User(user)
-            pretty.log(`Socket authenticated by token.fb as '${socket.user.name}'`)
             socket.emit('auth', socket.user.info())
+            pretty.log(`Socket: ${socket.id} auth by token.fb as '${socket.user.name}'`, 3)
+            Stats.auth(socket)
           })
         });
 
-      }).on("error", (err) => { throw new Error(err.message) })
+      }).on("error", (err) => {
+        socket.emit('meta', {
+          type: 'error',
+          action: 'auth',
+          message: `Auth: there was and error while fetching facebook data: ${err.message}`
+        })
+        throw err
+      })
     }
-    // socket.emit('auth', {
-    //   token: {
-    //     value: 'asdasd',
-    //     expires: new Date().getTime()+(1e3*60*60*24*30)
-    //   }
-    // })
-    return
-
-
   })
 
   socket.on('search', function (data) {
+    if (typeof data != 'object') return // validate input
     if (typeof data.query != 'string') return
-    spotify.searchTracks(data.query)
-      .then(function (data) {
-        socket.emit('results', {
-          tids: data.body.tracks.items.map(track => tracks.set(new Track('spotify', track))), //new Track('spotify', track)
-          total: data.body.tracks.total
-        })
-      }, function (err) {
-        console.error(err);
-      });
+    if (typeof data.source != 'string') return
+
+    if (data.source == 'spotify') {
+      spotify.searchTracks(data.query)
+        .then(function (response) {
+          socket.emit('results', {
+            tids: response.body.tracks.items.map(tdata => tdata.id),
+            total: response.body.tracks.total
+          })
+        }, function (err) {
+          socket.emit('meta', {
+            type: 'error',
+            action: 'search',
+            message: `'${data.query}' not found: ${err.message}`
+          })
+          pretty.log({ data: err.message, action: 'error' });
+        });
+    }
   });
 
   socket.on('track', function (data) {
-    tracks.get(data.query).then(track => {
+    Tracks.get(data.tid).then(track => {
       socket.emit('track', track)
+    }).catch(err => {
+      socket.emit('meta', {
+        type: 'error',
+        action: 'track',
+        message: `tid '${data.tid}' not found: ${err.message}`
+      })
     })
   })
 
@@ -337,18 +527,43 @@ server.on('connection', socket => {
         tid: tid,
         flags: flags
       })
+    }).catch(err => {
+      socket.emit('meta', {
+        type: 'error',
+        action: 'flags',
+        message: `Flags: api error for '${data.query}'`
+      })
     })
   })
 
   socket.on('vote', function (data) {
-    if (!socket.user) return
-    tracks.get(data.tid).then(track => {
-      db.votes.add(socket.user, track, data.flag, data.comment)
+    Tracks.get(data.tid).then(track => {
+      db.votes.add(socket.user, track, data.flag).then(vote => {
+        Chart.serial++
+      }).catch(err => {
+        socket.emit('meta', {
+          type: 'error',
+          action: 'vote',
+          message: `Vote: ignored: ${err.message}`
+        })
+      })
+    }).catch(err => {
+      socket.emit('meta', {
+        type: 'error',
+        action: 'vote',
+        message: `Vote: tid '${data.tid}' not found: ${err.message}`
+      })
     })
   })
 
-  socket.on('top', function (data) {
-    socket.emit('top', chart.get())
+  socket.on('chart', function (data) {
+    socket.emit('chart', Chart.get())
+  })
+
+  socket.on('admin', function (data) {
+    if (!(socket.user.admin <= 0)) return
+    console.log(data)
+
   })
 
 });
