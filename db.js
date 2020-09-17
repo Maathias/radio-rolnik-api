@@ -36,22 +36,22 @@ var Track = mongoose.model('Track', new mongoose.Schema({
   source: String,
   explicit: Boolean,
   banned: Boolean
-}, { collection: 'tracks' })),
+}, { collection: 'tracks', timestamps: { createdAt: 'createdAt', updatedAt: 'updatedAt' } })),
 
   Vote = mongoose.model('Vote', new mongoose.Schema({
     uid: String,
     tid: String,
     flag: String,
     comment: String
-  }, { collection: 'votes', timestamps: { createdAt: 'createdAt' } })),
+  }, { collection: 'votes', timestamps: { createdAt: 'createdAt', updatedAt: false } })),
 
   User = mongoose.model('User', new mongoose.Schema({
     id: String,
     name: String,
     mail: String,
     token: String,
-    admin: Number
-  }, { collection: 'users' })),
+    admin: Number,
+  }, { collection: 'users', timestamps: { createdAt: 'createdAt', updatedAt: 'updatedAt' } })),
 
   Previous = mongoose.model('Previous', new mongoose.Schema({
     tid: String
