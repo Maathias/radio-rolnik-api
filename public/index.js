@@ -315,7 +315,6 @@ Hash = {
       case 'search':
       case 'chart':
       case 'settings':
-      case 'admin':
         location.hash = target
         break;
       default:
@@ -326,25 +325,24 @@ Hash = {
   },
   change() {
     this.current = location.hash.slice(1)
+    if(this.current.indexOf(':')) this.current = this.current.split(':')[0]
     switch (this.current) {
       case 'history':
       case 'search':
       case 'chart':
       case 'settings':
-      case 'admin':
         document.title = `radio-rolnik - ${{
           history: 'Historia',
           search: 'Wyszukaj',
           chart: 'Top',
           settings: 'Ustawienia',
-          admin: 'Administracja'
         }[this.current]}`
         Panes.switch(this.current)
         gtag('event', 'pageview', {
           'page_path': location.pathname + location.hash
         });
         break;
-      default:
+      case 'track':
         let tid = this.getTrack()
         if (tid == 'undefined') break;
         Tracks.get(tid).then(track => {
@@ -357,12 +355,13 @@ Hash = {
         break;
     }
   },
-  setTrack(trackid) {
-    return `track:${trackid}`
+  setTrack(tid) {
+    return `track:${tid}`
   },
   getTrack() {
-    if (!this.current.startsWith('track:')) return
-    return this.current.slice(6)
+    let hash = location.hash.slice(1)
+    if (!hash.startsWith('track:')) return
+    return hash.slice(6)
   }
 }
 
