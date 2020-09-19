@@ -16,7 +16,6 @@ body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   font-family: 'Lato', sans-serif;
   line-height: 1.3rem;
-  /* font-weight: 600; */
 }
 
 .hidden {
@@ -25,9 +24,7 @@ body {
 
 ::-webkit-scrollbar {
   width: 0px;
-  /* Remove scrollbar space */
   background: transparent;
-  /* Optional: just make scrollbar invisible */
 }
 
 #offline {
@@ -49,12 +46,10 @@ body {
 }
 
 #wrapper {
-  /* height: calc(100vh - 2rem); */
   height: 100vh;
   max-width: 900px;
   background: var(--color-2grey);
   box-sizing: border-box;
-  /* border-radius: 5px; */
   position: relative;
   left: 0;
   right: 0;
@@ -63,19 +58,13 @@ body {
   overflow: hidden;
 }
 
-/* #wrapper.admin {
-  max-width: 100%;
-} */
-
 #player {
   position: relative;
 }
 
 #player>.current {
   width: 100%;
-  /* padding: 0.5rem; */
   background: var(--color-primary);
-  /* border-radius: 5px 5px 0px 0px; */
   transition: background .3s ease-in-out;
   box-sizing: border-box;
   overflow: hidden;
@@ -123,12 +112,6 @@ body {
 
 #nav>.button:not(.active):hover {
   background-color: #93474C;
-}
-
-@media only screen and (max-width: 768px) {
-  .admin>#nav>.button>.label {
-    display: none;
-  }
 }
 
 @media only screen and (max-width: 630px) {
@@ -184,7 +167,6 @@ a:hover {
   -webkit-transform: translateY(-50%);
   transform: translateY(-50%);
   font-size: 1.2rem;
-  /* background: inherit; */
   text-shadow: 0px 0px 8px black;
 }
 
@@ -252,12 +234,8 @@ a:hover {
 
 .pane.search>.query>.icons {
   background: var(--color-1grey);
-  /* float: right; */
-  /* height: 2.5rem; */
   padding: .5rem;
   padding-right: 18px;
-  /* width: 100%; */
-  /* box-sizing: border-box; */
   text-align: right;
   margin-top: 8px;
   overflow: hidden;
@@ -336,7 +314,6 @@ a:hover {
 
 .pane.preview>.buttons>i.clicked {
   background: var(--color-primary);
-  /* cursor: default; */
 }
 
 .pane.preview>.params {
@@ -351,7 +328,6 @@ a:hover {
 
 .pane.preview>.params>tbody>tr.highlight {
   font-weight: bold;
-  /* background: #ffffff11; */
 }
 
 .pane.preview>.params>tbody>tr.highlight::before {
@@ -453,16 +429,13 @@ a:hover {
 .chart>.list>.track::before {
   content: counter(number)" ";
   position: absolute;
-  left: .95rem;
+  left: .9rem;
   top: 1.25rem;
   font-size: 1rem;
-  /* height: 2.6rem; */
-  /* -webkit-transform: translateX(-50%); */
-  /* transform: translateY(-50%); */
 }
 
 .chart>.list>.track:nth-child(n+10)::before {
-  left: .65rem;
+  left: .6rem;
 }
 
 .chart>.list>.track:nth-child(n+100)::before {
@@ -530,10 +503,4 @@ a:hover {
   text-align: center;
   padding: .5rem;
   cursor: pointer;
-}
-
-/* Admin */
-
-.pane.admin {
-  padding: .5rem;
 }

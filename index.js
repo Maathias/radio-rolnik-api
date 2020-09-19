@@ -135,28 +135,24 @@ const credentials = {
 const Previous = {
   tracks: [],
   new(tid, played) {
-    // if (Object.keys(tid).length < 1) return
     pretty.log(`Previous: new track`, 2)
 
     var previous = { tid: tid, played: played.getTime() }
     this.tracks.push(previous)
-    // tid.played = played.getTime()
-    // this.tracks.unshift(tid)
     this._send(previous)
   },
   _send(previous) {
-    // pretty.log(`Previous: updating previous history`)
     server.emit('previous', {
       new: previous,
     })
   },
   async update() {
+    this.tracks = []
     for (previous of await db.history.get()) {
       this.new(previous.tid, previous.createdAt)
     }
   },
   get() {
-    if (this.tracks.length < 1) return []
     return {
       all: this.tracks.slice(0, 20)
     }
@@ -218,7 +214,7 @@ const Previous = {
     set serial(value) {
       this._serial = value
       this._changed = true
-      if (this._serial - this._sentAt > this.threshold) {
+      if (this._serial - this._sentAt > this.threshold) { // force update after 'thershold' of votes
         this.update()
         this._changed = false
       }
@@ -245,20 +241,11 @@ const Previous = {
         return this.values[b].total - this.values[a].total
       })
 
-      // return console.log(this.tids)
-      // this.tids = (Object.keys(values).sort(function (a, b) { return values[a] - values[b] })).reverse()
       for (let tid in this.values) {
         let track = await Tracks.get(tid)
-        // tracks.get(tid).then(track => {
-        //   track.votes = values[tid]
-        //   track.placement = this.tids.indexOf(tid) + 1
-        // })
-        if (track.banned) {
-          this.tids.splice(this.tids.indexOf(tid), 1)
-          continue
-        }
         track.votes = this.values[tid]
         track.placement = this.tids.indexOf(tid) + 1
+        if (track.banned) this.tids.splice(this.tids.indexOf(tid), 1)
       }
       this._changed = false
       this._sentAt = this._serial
@@ -358,52 +345,8 @@ www.on('listening', function () {
   pretty.log(`www: listening on ${port}`)
 });
 
-// app.get('/login', function (req, res) {
-//   var scopes = ['user-read-private', 'user-read-email'],
-//     redirect = spotify.createAuthorizeURL(scopes, 'what')
-
-//   res.redirect(redirect)
-//   // res.redirect('https://accounts.spotify.com/authorize' +
-//   //   '?response_type=code' +
-//   //   '&client_id=' + credentials.spotify.clientId +
-//   //   (scopes ? '&scope=' + encodeURIComponent(scopes) : '') +
-//   //   '&redirect_uri=' + encodeURIComponent('https://radio-rolnik.mtps.pl/logedin'));
-// });
-
-// app.get('/logedin', function (req, res) {
-//   console.log(req.query.code)
-//   spotify.authorizationCodeGrant(req.query.code).then(
-//     function (data) {
-//       console.log('The token expires in ' + data.body['expires_in']);
-//       console.log('The access token is ' + data.body['access_token']);
-//       console.log('The refresh token is ' + data.body['refresh_token']);
-
-//       // Set the access token on the API object to use it in later calls
-//       spotify.setAccessToken(data.body['access_token']);
-//       spotify.setRefreshToken(data.body['refresh_token']);
-//     },
-//     function (err) {
-//       console.log('Something went wrong!', err);
-//     }
-//   );
-// })
-
-// setInterval(function () {
-//   console.log(Stats._authed)
-// }, 5e3)
-
 Chart.interval()
 Previous.update()
-
-// Tracks.get('7GhIk7Il098yCjg4BQjzvb').then(track => {
-//   Player.set(track)
-//   Tracks.get('6habFhsOp2NvshLv26DqMb').then(track => {
-//     Player.set(track)
-//     Tracks.get('3yfqSUWxFvZELEM4PmlwIR').then(track => {
-//       Player.set(track)
-//     })
-//   })
-// })
 
 server.on('connection', socket => {
 
@@ -430,9 +373,6 @@ server.on('connection', socket => {
   socket.on('clear', function (data) {
     Stats.deauth(socket)
     socket.user = undefined
-    // socket.emit('auth', { // demand token clear
-    //   clear: true
-    // })
   })
 
   socket.on('auth', function (tokens) {
@@ -532,26 +472,16 @@ server.on('connection', socket => {
   socket.on('flags', function (tid) {
     if (!socket.user) return
     db.votes.validUser(socket.user, tid).then(vote => {
-      // let flags = vote ? {
-      //   up: vote.flag == 'up',
-      //   down: vote.flag == 'down',
-      //   report: vote.report
-      // } : {
-      //     up: false,
-      //     down: false,
-      //     report: false
-      //   }
       socket.emit('flags', {
         tid: tid,
         flags: vote !== null ? vote.flag : null
       })
     }).catch(err => {
-      throw err
-      // socket.emit('meta', {
-      //   type: 'error',
-      //   action: 'flags',
-      //   message: `Flags: api error for '${data.query}'`
-      // })
+      socket.emit('meta', {
+        type: 'error',
+        action: 'flags',
+        message: `Flags: api error for '${data.query}'`
+      })
     })
   })
 

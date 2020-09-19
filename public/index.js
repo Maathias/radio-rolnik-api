@@ -263,12 +263,6 @@ pretty = {
   }
 }
 
-// function checkLoginState() {
-//   FB.getLoginStatus(function (response) {
-//     auth.response(response)
-//   });
-// }
-
 Tracks = {
   _list: {},
   _promises: {},
@@ -373,15 +367,6 @@ Hash = {
 }
 
 Vote = {
-  up(track) {
-    this._send(track, 'up')
-  },
-  down(track) {
-    this._send(track, 'down')
-  },
-  report(track) {
-    this._send(track, 'report')
-  },
   send(track, flag) {
     this._emit(track, flag)
   },
@@ -469,27 +454,25 @@ Search = {
   list: [],
   update(tids, total) {
     pretty.info('Search', `${total} results`)
+
     Elements.search.container.innerHTML = ''
     Elements.search.info.textContent = `${total} utworów`
+
     for (let tid of tids) {
       Tracks.get(tid).then(track => {
         this._append(track)
       })
-      // var result = new Track(track)
-
     }
   },
   submit() {
     var value = Elements.search.input.value
     if (value === '') return
+
     Elements.search.info.textContent = ''
     Socket.emit('search', {
       query: value,
       source: 'spotify'
     })
-    gtag('event', 'search', {
-      'search_term': value
-    });
   },
   _append(result) {
     this.list.push(result)
@@ -566,13 +549,6 @@ window.onload = function () {
         report: document.querySelector('.pane.preview>.buttons>.icon-flag'),
       },
       status: null,
-      // reset(flag) {
-      //   // if (typeof flag == 'undefined') var flags = Preview.track.flags
-      //   this.status = {
-      //     up: this._clicked('up', flag == 'up'),
-      //     down: this._clicked('down', flag == 'down'),
-      //   }
-      // },
       _clicked(flag, status = false) {
         if (status) Elements.flags[flag].classList.add('clicked')
         else Elements.flags[flag].classList.remove('clicked')
@@ -607,12 +583,13 @@ window.onload = function () {
       this.flags.set(track.flag)
     },
     goto(track) {
-      Panes.switch('preview')
       this.change(track)
+      Panes.switch('preview')
       Hash.set(`track:${this.track.id}`)
     },
     update() {
       pretty.info('Preview', `update`)
+
       Elements.preview.table.innerHTML = ''
       Elements.preview.table.append(...this.track.tbody().children)
     }
@@ -695,19 +672,6 @@ window.onload = function () {
         Elements.auth.prof.style.backgroundImage = `url('https://graph.facebook.com/${this.info.id}/picture?type=large')`
         Elements.auth.username.textContent = this.info.name
         Elements.auth.fbLogin.classList.add('hidden')
-
-        // this.el.params.innerHTML = ''
-        // this.el.params.append(...new Table([
-        //   ['Zalogowano', ok ? 'tak' : 'nie'],
-        //   ['Użytkownik', this.info.name],
-        //   ['Token', this.tokens.local ? 'tak' : 'nie'],
-        //   ['Facebook', this.facebook.status ? this.facebook.status : '~']
-        // ]).children)
-
-        gtag('event', 'login');
-        // if(this.info.admin)
-        // document.querySelector('#wrapper').classList.add('admin')
-        // document.querySelector('#nav>.button[data-target=admin]').classList.remove('hidden')
       } else {
         this.successful = false
         Elements.auth.buttons.classList.add('disabled')
@@ -755,44 +719,21 @@ window.onload = function () {
     values: {},
     serial: null,
     async update(tids, values, serial) {
-      console.log(serial)
       if (serial === this.serial) return
       pretty.info('Chart', `update, serial '${serial}' vs '${this.serial}'`)
+
       this.tids = tids
       this.values = values
       this.serial = serial
 
-      // return console.log(this)
-
-      // tids.map(tid => {
-      //   let track = await tracks.get(tid)
-      //   track.votes = values[tid]
-      //   if (preview.track.id == tid) preview.update()
-      //   return track
-      // }).forEach(track => {
-      //   this.el.append(track.el())
-      // })
-
-      let top = []
       this.el.innerHTML = ''
       for (let tid of tids) {
         let track = await Tracks.get(tid)
         track.votes = values[tid]
         track.placement = tids.indexOf(tid) + 1
-        top.push(track)
         this.el.append(track.el())
         if (Preview.track.id == tid) Preview.update()
       }
-      // this.el.innerHTML = ''
-      // tracks.forEach(track => {
-      //   this.el.append(track.el())
-      // })
-      // for (let tid in values) {
-      //   if (tracks._list[tid]) {
-      //     tracks._list[tid].votes = values[tid]
-      //   }
-      // }
-      // tracks.update()
     }
   }
 
@@ -802,6 +743,7 @@ window.onload = function () {
 
   // ############ Click events
 
+  // main navigation buttons
   document.querySelectorAll('#nav>.button').forEach(button => {
     button.addEventListener('click', function (e) {
       Panes.switch(this.getAttribute('data-target'))
@@ -809,6 +751,7 @@ window.onload = function () {
     })
   })
 
+  // search input autosearch
   var keyupTimeout
   document.querySelector('.pane.search>.query>.input').addEventListener("keyup", function (e) {
     clearTimeout(keyupTimeout)
@@ -819,6 +762,7 @@ window.onload = function () {
     }
   })
 
+  // search buttons
   document.querySelector('.pane.search>.query>.icons').addEventListener('click', function (e) {
     if (e.target.classList.value.startsWith('icon-')) {
       switch (e.target.classList.value.slice(5)) {
@@ -832,6 +776,7 @@ window.onload = function () {
     }
   })
 
+  // track preview buttons
   document.querySelector('.pane.preview>.buttons').addEventListener('click', function (e) {
     if (e.target.classList.value.startsWith('icon-')) {
       let target = e.target.classList.value.split(' ')[0].slice(5)
@@ -843,9 +788,6 @@ window.onload = function () {
               text: `Sprawdź "${Preview.track.title}" na radio-rolnik`,
               url: location.href,
             })
-            gtag('event', 'share', {
-              'method': 'navigator.share'
-            });
           }
           break;
         case 'music':
@@ -904,6 +846,7 @@ window.onload = function () {
     }
   })
 
+  // settings buttons
   document.querySelector('.pane.settings>.actions').addEventListener('click', function (e) {
     if (e.target.getAttribute('data-target')) {
       switch (e.target.getAttribute('data-target')) {
@@ -925,8 +868,6 @@ window.onload = function () {
 
   // ############ Miscellaneous
 
-  // FB.Event.subscribe('auth.statusChange', function () { auth.fbReq() })
-
   // go to hash location
   if (location.hash == '') Hash.set('history')
   else Hash.change()
@@ -945,16 +886,6 @@ window.onload = function () {
       Socket.disconnect()
     }, 30e3)
   }
-
-  // register service worker
-  if (false)
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').then(function (registration) {
-        pretty.info('ServiceWorker', 'registration successful');
-      }, function (err) {
-        pretty.info('ServiceWorker', `registration failed: ${err.message}`);
-      });
-    }
 
   // ############ Socket events
 
