@@ -51,7 +51,7 @@ class Storage {
 }
 
 class Track {
-  constructor(tdata, flags = { up: false, down: false, report: false }) {
+  constructor(tdata) {
     this.title = tdata.title
     this.artists = tdata.artists
     this.album = tdata.album.name
@@ -60,7 +60,7 @@ class Track {
     this.duration = tdata.duration
     this.votes = tdata.votes
     this.placement = tdata.placement
-    this.flags = flags
+    this.flag = null
     this.explicit = tdata.explicit
     this.banned = tdata.banned
     this.listen = tdata.listen
@@ -87,12 +87,14 @@ class Track {
     var iVotes = document.createElement('div'),
       iPlayed = document.createElement('div')
 
-    iVotes.classList.add('votes')
-    iVotes.append(this.votes, new Icon('thumbs-up'))
+    if (this.votes) {
+      iVotes.classList.add('votes')
+      iVotes.append(this.votes.total, new Icon('thumbs-up'))
+    }
 
-    iPlayed.classList.add('played')
     if (options.played) {
       var played = new Date(options.played)
+      iPlayed.classList.add('played')
       iPlayed.append(`${['Nd', 'Pn', 'Wt', 'Śr', 'Cz', 'Pt', 'Sb'][played.getDay()]}, ${played.getHours()}:${played.getMinutes()}`)
     }
 
@@ -130,8 +132,10 @@ class Track {
       ['Autorzy', this.artists.join(', ')],
       ['Album', this.album],
       ['Czas', `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`],
+      ['Top', true],
       ['Miejsce', this.placement ? `#${this.placement}` : '~'],
-      ['Głosy', this.votes ? this.votes : '~'],
+      ['Punkty', this.votes ? this.votes.total : '~'],
+      this.votes ? ['Głosy', [new Icon('thumbs-up'), this.votes.up, ' : ', this.votes.down, new Icon('thumbs-down'), `\t${(this.votes.up / (this.votes.up + this.votes.down) * 100).toFixed(1)}%`]] : [],
       ['Metadane', true],
       ['ban', this.banned ? new Icon('check') : new Icon('check-empty')],
       ['explicit', this.explicit ? new Icon('check') : new Icon('check-empty')],
@@ -223,7 +227,8 @@ class Table {
         if (column === true) continue
         let td = document.createElement('td')
         tr.append(td)
-        td.append(column)
+        if (column instanceof Array) for (let element of column) td.append(element)
+        else td.append(column)
       }
       tbody.append(tr)
     }
@@ -254,7 +259,7 @@ class Icon {
 
 pretty = {
   info(where, text) {
-    console.log(`%c# ${where}${'\t'.repeat( 4 - (((where.length+2)-(where.length+2)%4)/4) )}${text}`, 'color: cyan')
+    console.log(`%c# ${where}${'\t'.repeat(4 - (((where.length + 2) - (where.length + 2) % 4) / 4))}${text}`, 'color: cyan')
   }
 }
 
@@ -282,34 +287,27 @@ Tracks = {
     })
   },
   set(track) {
+    this._list[track.id] = track
+    this.getFlag(track.id)
     if (this._promises[track.id]) {
       for (let promise of this._promises[track.id]) {
         promise.resolve(track)
       }
       delete this._promises[track.id]
     }
-    this._list[track.id] = track
-    this.getFlags(track.id)
   },
-  updateFlags() {
+  expireFlags() {
     for (let track in this._list) {
-      this.getFlags(track)
+      track.flag = false
     }
   },
-  getFlags(tid) {
+  getFlag(tid) {
     if (Auth.successful) Socket.emit('flags', tid)
   },
-  setFlags(tid, flags) {
-    this._list[tid].flags = flags
-    if (Preview.track.id == tid) Preview.flags.reset(flags)
+  setFlag(tid, flag) {
+    this._list[tid].flag = flag
+    if (Preview.track.id == tid) Preview.flags.set(flag)
   },
-  update(tid) {
-    var el = document.querySelectorAll(`.track.${CSS.escape(tid)}`)
-    el.forEach(element => {
-      element.innerHTML = ''
-      element.append(...element.track.el().children)
-    });
-  }
 }
 
 Hash = {
@@ -349,7 +347,7 @@ Hash = {
         }[this.current]}`
         Panes.switch(this.current)
         gtag('event', 'pageview', {
-          'page_path': location.pathname + location.search + location.hash
+          'page_path': location.pathname + location.hash
         });
         break;
       default:
@@ -359,7 +357,7 @@ Hash = {
           document.title = `radio-rolnik - "${track.title}"`
           if (Preview.track.id != track.id) Preview.goto(track)
           gtag('event', 'pageview', {
-            'page_path': location.pathname + location.search + location.hash
+            'page_path': location.pathname + location.hash
           });
         })
         break;
@@ -384,7 +382,10 @@ Vote = {
   report(track) {
     this._send(track, 'report')
   },
-  _send(track, flag,) {
+  send(track, flag) {
+    this._emit(track, flag)
+  },
+  _emit(track, flag) {
     pretty.info('Vote', `${flag}' on ${track.title}`)
     Socket.emit('vote', {
       tid: track.id,
@@ -564,42 +565,46 @@ window.onload = function () {
         down: document.querySelector('.pane.preview>.buttons>.icon-thumbs-down'),
         report: document.querySelector('.pane.preview>.buttons>.icon-flag'),
       },
-      status: {
-        up: false,
-        down: false,
-        report: false,
-      },
-      reset(flags) {
-        if (typeof flags == 'undefined') var flags = Preview.track.flags
-        this.status = {
-          up: this.clicked('up', flags.up),
-          down: this.clicked('down', flags.down),
-          report: this.clicked('report', flags.report),
-        }
-      },
-      clicked(flag, status = false) {
+      status: null,
+      // reset(flag) {
+      //   // if (typeof flag == 'undefined') var flags = Preview.track.flags
+      //   this.status = {
+      //     up: this._clicked('up', flag == 'up'),
+      //     down: this._clicked('down', flag == 'down'),
+      //   }
+      // },
+      _clicked(flag, status = false) {
         if (status) Elements.flags[flag].classList.add('clicked')
         else Elements.flags[flag].classList.remove('clicked')
         return status
       },
-      set(flag, status) {
-        if (this.status[flag]) return
-        this.clicked(flag, status)
-        this.status[flag] = true
-        Vote[flag](Preview.track)
+      click(flag) {
+        if (flag !== 'report') {
+          if (flag === this.status) this.status = null
+          else this.status = flag
+        }
+        this.set(this.status)
+        Vote.send(Preview.track, this.status)
+      },
+      set(flag) {
+        this._clicked('up', flag == 'up')
+        this._clicked('down', flag == 'down')
+        this._clicked('report', flag == 'report')
+        if (flag != 'report') this.status = flag
       }
     },
     change(track) {
       pretty.info('Preview', `change: ${track.title}`)
       if (track.id == this.track.id) return
       this.track = track
+      if (track.flag === false) Tracks.getFlag(track.id)
 
       Elements.preview.albumart.style.backgroundImage = `url('${track.albumart}')`
       Elements.preview.title.textContent = track.title
       Elements.preview.artists.textContent = track.artists.join(', ')
       Elements.preview.table.innerHTML = ''
       Elements.preview.table.append(...track.tbody().children)
-      this.flags.reset(track.flags)
+      this.flags.set(track.flag)
     },
     goto(track) {
       Panes.switch('preview')
@@ -684,7 +689,7 @@ window.onload = function () {
       if (ok) {
         this.successful = true
 
-        Tracks.updateFlags()
+        Tracks.expireFlags()
 
         Elements.auth.buttons.classList.remove('disabled')
         Elements.auth.prof.style.backgroundImage = `url('https://graph.facebook.com/${this.info.id}/picture?type=large')`
@@ -750,11 +755,14 @@ window.onload = function () {
     values: {},
     serial: null,
     async update(tids, values, serial) {
+      console.log(serial)
       if (serial === this.serial) return
       pretty.info('Chart', `update, serial '${serial}' vs '${this.serial}'`)
       this.tids = tids
       this.values = values
       this.serial = serial
+
+      // return console.log(this)
 
       // tids.map(tid => {
       //   let track = await tracks.get(tid)
@@ -826,7 +834,7 @@ window.onload = function () {
 
   document.querySelector('.pane.preview>.buttons').addEventListener('click', function (e) {
     if (e.target.classList.value.startsWith('icon-')) {
-      let target = e.target.classList.value.slice(5)
+      let target = e.target.classList.value.split(' ')[0].slice(5)
       switch (target) {
         case 'link':
           if (navigator.share) {
@@ -857,11 +865,10 @@ window.onload = function () {
             })
             return
           }
-          Preview.flags.set({
+          Preview.flags.click({
             'thumbs-up': 'up',
-            'thumbs-down': 'down',
-            'flag': 'report'
-          }[target], true)
+            'thumbs-down': 'down'
+          }[target])
           break
         case 'flag':
           if (this.classList.contains('disabled')) {
@@ -880,7 +887,7 @@ window.onload = function () {
             confirm: {
               icon: 'paper-plane',
               click: function () {
-                Preview.flags.set('report', true)
+                Preview.flags.click('report')
                 this.modal.destruct()
               }
             },
@@ -940,14 +947,14 @@ window.onload = function () {
   }
 
   // register service worker
-  if(false)
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js').then(function (registration) {
-      pretty.info('ServiceWorker', 'registration successful');
-    }, function (err) {
-      pretty.info('ServiceWorker', `registration failed: ${err.message}`);
-    });
-  }
+  if (false)
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').then(function (registration) {
+        pretty.info('ServiceWorker', 'registration successful');
+      }, function (err) {
+        pretty.info('ServiceWorker', `registration failed: ${err.message}`);
+      });
+    }
 
   // ############ Socket events
 
@@ -991,7 +998,7 @@ window.onload = function () {
   });
 
   Socket.on('flags', function (data) {
-    Tracks.setFlags(data.tid, data.flags)
+    Tracks.setFlag(data.tid, data.flags)
   });
 
   Socket.on('chart', function (data) {

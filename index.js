@@ -22,11 +22,7 @@ class Track {
 
     this.votes = null
     this.placement = null
-    this.flags = {
-      up: false,
-      down: false,
-      report: false
-    }
+    this.flag = null
   }
 
   _db(data) {
@@ -218,28 +214,40 @@ const Previous = {
     values: {},
     _serial: 0,
     _sentAt: null,
-    get serial(){ return this._serial},
-    set serial(value){
+    get serial() { return this._serial },
+    set serial(value) {
       this._serial = value
-      if(this._serial - this._sentAt > 5) {
+      this._changed = true
+      if (this._serial - this._sentAt > this.threshold) {
         this.update()
-        this.changed = false
-        return
+        this._changed = false
       }
-      this.changed = true
     },
-    changed: true,
-    delay: 10e3,
+    _changed: true,
+    delay: 30e3,
+    threshold: 10,
     interval() {
-      if(this.changed) this.update()
-      this.changed = false
+      if (this._changed) {
+        this.update()
+        this._changed = false
+      }
       setTimeout(function () { Chart.interval() }, this.delay)
     },
     async update() {
-      var values = await db.votes.validAll()
-      this.values = values
-      this.tids = (Object.keys(values).sort(function (a, b) { return values[a] - values[b] })).reverse()
-      for (let tid in values) {
+      this.values = await db.votes.validAll()
+      this.tids = []
+
+      for (let tid in this.values) {
+        this.tids.push(tid)
+      }
+
+      this.tids.sort((a, b) => {
+        return this.values[b].total - this.values[a].total
+      })
+
+      // return console.log(this.tids)
+      // this.tids = (Object.keys(values).sort(function (a, b) { return values[a] - values[b] })).reverse()
+      for (let tid in this.values) {
         let track = await Tracks.get(tid)
         // tracks.get(tid).then(track => {
         //   track.votes = values[tid]
@@ -249,10 +257,10 @@ const Previous = {
           this.tids.splice(this.tids.indexOf(tid), 1)
           continue
         }
-        track.votes = values[tid]
+        track.votes = this.values[tid]
         track.placement = this.tids.indexOf(tid) + 1
       }
-      this.changed = false
+      this._changed = false
       this._sentAt = this._serial
       server.emit('chart', this.get())
     },
@@ -268,31 +276,31 @@ const Previous = {
     _online: 0,
     _auth: 0,
     _authed: {},
-    get(id){
+    get(id) {
       return {
         'online': this._online,
         'auth': this._auth
       }[id]
     },
-    online(){
+    online() {
       return this._online
     },
-    connect(){
+    connect() {
       this._online++
     },
-    disconnect(){
+    disconnect() {
       this._online--
     },
-    auth(socket){
-      if(!this._authed[socket.user.id]) this._authed[socket.user.id] = {}
+    auth(socket) {
+      if (!this._authed[socket.user.id]) this._authed[socket.user.id] = {}
       this._authed[socket.user.id][socket.id] = {
         user: socket.user,
         socket: socket
       }
       this._auth++
     },
-    deauth(socket){
-      if(!socket.user) return
+    deauth(socket) {
+      if (!socket.user) return
       delete this._authed[socket.user.id][socket.id]
       this._auth--
     }
@@ -341,7 +349,8 @@ www.on('error', function (error) {
   }
 
   pretty.log({
-    data: `Error: port ${port}: ${error.code}`
+    data: `Error: port ${port}: ${error.code}`,
+    action: 'error'
   })
 });
 
@@ -384,7 +393,6 @@ www.on('listening', function () {
 // }, 5e3)
 
 Chart.interval()
-Chart.update()
 Previous.update()
 
 // Tracks.get('7GhIk7Il098yCjg4BQjzvb').then(track => {
@@ -404,7 +412,7 @@ server.on('connection', socket => {
 
   socket.on('disconnect', function () {
     Stats.disconnect()
-    if(socket.user) Stats.deauth(socket)
+    if (socket.user) Stats.deauth(socket)
     pretty.log(`Socket: '${socket.id}' disconnected`, 3)
   })
 
@@ -419,12 +427,12 @@ server.on('connection', socket => {
     socket.emit('previous', Previous.get())
   })
 
-  socket.on('clear', function(data){
-      Stats.deauth(socket)
-      socket.user = undefined
-      // socket.emit('auth', { // demand token clear
-      //   clear: true
-      // })
+  socket.on('clear', function (data) {
+    Stats.deauth(socket)
+    socket.user = undefined
+    // socket.emit('auth', { // demand token clear
+    //   clear: true
+    // })
   })
 
   socket.on('auth', function (tokens) {
@@ -453,11 +461,12 @@ server.on('connection', socket => {
 
         resp.on('end', () => {
           let creds = JSON.parse(data)
-          if (creds.error) {socket.emit('meta', {
-            type: 'error',
-            action: 'auth',
-            message: `Auth: there was and error with your facebook token: ${creds.error}`
-          })
+          if (creds.error) {
+            socket.emit('meta', {
+              type: 'error',
+              action: 'auth',
+              message: `Auth: there was and error with your facebook token: ${creds.error}`
+            })
             return pretty.log({ data: creds.error.message, action: 'error' })
           }
 
@@ -469,7 +478,7 @@ server.on('connection', socket => {
           }).then(user => { // finalize auth
             socket.user = new User(user)
             socket.emit('auth', socket.user.info())
-            pretty.log(`Socket: ${socket.id} auth by token.fb as '${socket.user.name}'`, 3)
+            pretty.log(`Socket: '${socket.id}' auth by token.fb as '${socket.user.name}'`, 3)
             Stats.auth(socket)
           })
         });
@@ -522,36 +531,38 @@ server.on('connection', socket => {
 
   socket.on('flags', function (tid) {
     if (!socket.user) return
-    db.votes.validUser(socket.user, tid).then(flags => {
+    db.votes.validUser(socket.user, tid).then(vote => {
+      // let flags = vote ? {
+      //   up: vote.flag == 'up',
+      //   down: vote.flag == 'down',
+      //   report: vote.report
+      // } : {
+      //     up: false,
+      //     down: false,
+      //     report: false
+      //   }
       socket.emit('flags', {
         tid: tid,
-        flags: flags
+        flags: vote !== null ? vote.flag : null
       })
     }).catch(err => {
-      socket.emit('meta', {
-        type: 'error',
-        action: 'flags',
-        message: `Flags: api error for '${data.query}'`
-      })
+      throw err
+      // socket.emit('meta', {
+      //   type: 'error',
+      //   action: 'flags',
+      //   message: `Flags: api error for '${data.query}'`
+      // })
     })
   })
 
   socket.on('vote', function (data) {
-    Tracks.get(data.tid).then(track => {
-      db.votes.add(socket.user, track, data.flag).then(vote => {
-        Chart.serial++
-      }).catch(err => {
-        socket.emit('meta', {
-          type: 'error',
-          action: 'vote',
-          message: `Vote: ignored: ${err.message}`
-        })
-      })
+    db.votes.add(socket.user, data.tid, data.flag).then(vote => {
+      Chart.serial++
     }).catch(err => {
       socket.emit('meta', {
         type: 'error',
         action: 'vote',
-        message: `Vote: tid '${data.tid}' not found: ${err.message}`
+        message: `Vote: ignored: ${err.message}`
       })
     })
   })

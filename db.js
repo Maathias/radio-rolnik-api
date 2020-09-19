@@ -42,8 +42,8 @@ var Track = mongoose.model('Track', new mongoose.Schema({
     uid: String,
     tid: String,
     flag: String,
-    comment: String
-  }, { collection: 'votes', timestamps: { createdAt: 'createdAt', updatedAt: false } })),
+    comment: String,
+  }, { collection: 'votes', timestamps: { createdAt: 'createdAt', updatedAt: 'updatedAt' } })),
 
   User = mongoose.model('User', new mongoose.Schema({
     id: String,
@@ -93,62 +93,107 @@ module.exports = {
     }
   },
   votes: {
-    timeValid: 60 * 60 * 12 * 1e3, // ms
-    add(user, track, flag) {
+    timeValid: () => {
+      var monday = new Date();
+      monday.setHours(0, 0, 0)
+      monday.setDate(monday.getDate() - (monday.getDay() + 6) % 7);
+
+      return monday
+    },
+    add(user, tid, flag) {
       return new Promise((resolve, reject) => {
         if (typeof user == 'undefined') return reject(new Error("Not authorized"))
-        this.validUser(user, track.id).then(flags => {
-          if (flags[flag]) {
-            reject(new Error("Already voted"))
+
+        if (flag == 'report') {
+          this.report(user, tid)
+        } else this.validUser(user, tid).then(vote => {
+          if (vote) {
+            Vote.updateOne({
+              _id: vote._id
+            },
+              {
+                flag: flag
+              }).then(status => {
+                if (status.ok != 1) pretty.log({
+                  data: "Vote: vote change error",
+                  action: 'error'
+                })
+                resolve(vote)
+                pretty.log(`'${user.name}' changed vote to '${flag}' on '${tid}'`, 2)
+              })
           } else {
             Vote.create({
               uid: user.id,
-              tid: track.id,
+              tid: tid,
               flag: flag
             }).then(vote => {
               resolve(vote)
-              pretty.log(`'${user.name}' voted '${flag}' on '${track.title}'`)
+              pretty.log(`'${user.name}' voted '${flag}' on '${tid}'`, 2)
             })
           }
         })
-
+      })
+    },
+    report(user, tid) {
+      return new Promise((resolve, reject) => {
+        if (typeof user == 'undefined') return reject(new Error("Not authorized"))
+        Vote.create({
+          uid: user.id,
+          tid: tid,
+          flag: 'report',
+        }).then(vote => {
+          resolve(vote)
+          pretty.log(`'${user.name}' reported '${tid}'`, 2)
+        })
       })
     },
     validUser(user, tid) {
       return new Promise((resolve, reject) => {
         if (typeof user == 'undefined') reject(new Error(`User not authenticated`))
-        Vote.find({
+        Vote.findOne({
           uid: user.id,
           tid: tid,
+          $or: [
+            { flag: 'up' },
+            { flag: 'down' },
+            { flag: null }
+          ],
           createdAt: {
-            $gt: new Date(new Date().setHours(0, 0, 0))
+            $gt: this.timeValid()
           }
-        }, function (err, votes) {
-          resolve({
-            up: !!votes.find(vote => vote.flag == 'up'),
-            down: !!votes.find(vote => vote.flag == 'down'),
-            report: !!votes.find(vote => vote.flag == 'report')
-          })
+        }, function (err, vote) {
+          resolve(vote)
+          // resolve({
+          //   up: !!votes.find(vote => vote.flag == 'up'),
+          //   down: !!votes.find(vote => vote.flag == 'down'),
+          //   report: !!votes.find(vote => vote.flag == 'report')
+          // })
         })
       })
     },
     validAll() {
       return new Promise((resolve, reject) => {
-        var monday = new Date();
-        monday.setHours(0, 0, 0)
-        monday.setDate(monday.getDate() - (monday.getDay() + 6) % 7);
         Vote.find({
           createdAt: {
             // $gt: new Date(new Date().getTime() - this.timeValid)
             // $gt: new Date(new Date().setHours(0, 0, 0))
-            $gt: monday
-          }
+            $gt: this.timeValid()
+          },
+          $or: [
+            { flag: 'up' },
+            { flag: 'down' }
+          ]
         }).then(function (votes) {
           let results = {}
-          for (let vote of votes.map(vote => [vote.tid, vote.flag])) {
-            if (typeof results[vote[0]] == 'undefined') results[vote[0]] = 0
-            if (vote[1] == 'up') results[vote[0]] += 1
-            if (vote[1] == 'down') results[vote[0]] -= 1
+          for (let vote of votes) {
+            if (typeof results[vote.tid] == 'undefined') results[vote.tid] = {
+              total: 0,
+              up: 0,
+              down: 0
+            }
+
+            results[vote.tid][vote.flag]++
+            results[vote.tid].total += { 'up': 1, 'down': -1 }[vote.flag]
           }
           resolve(results)
         })
