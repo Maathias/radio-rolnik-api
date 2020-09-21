@@ -85,7 +85,7 @@ class User {
 
 function apiSearch(id) {
   return new Promise((resolve, reject) => {
-    if (typeof id != 'string') return reject(new Error('Incorrect id'))
+    if (typeof id != 'string') return reject(new Error('Incorrect id, must by type String'))
     spotify.getTrack(id).then(data => {
       resolve(data.body)
     }).catch(err => {
@@ -129,12 +129,13 @@ function refreshToken() {
 }
 
 const credentials = {
-  spotify: require('./spotify-cred.json')
+  spotify: require('./spotify-cred.json'),
+  api: require('./api-cred.json')
 }
 
 const Previous = {
   tracks: [],
-  new(tid, played) {
+  new(tid, played = new Date) {
     pretty.log(`Previous: new track`, 2)
 
     var previous = { tid: tid, played: played.getTime() }
@@ -162,8 +163,8 @@ const Previous = {
     now: {},
     status: 'paused',
     set(track) {
-      Previous.new(this.now.id, new Date)
       this.now = track
+      Previous.new(this.now.id)
       server.emit('player', {
         tid: this.now.id,
         status: this.status
@@ -216,7 +217,6 @@ const Previous = {
       this._changed = true
       if (this._serial - this._sentAt > this.threshold) { // force update after 'thershold' of votes
         this.update()
-        this._changed = false
       }
     },
     _changed: true,
@@ -225,7 +225,6 @@ const Previous = {
     interval() {
       if (this._changed) {
         this.update()
-        this._changed = false
       }
       setTimeout(function () { Chart.interval() }, this.delay)
     },
@@ -344,6 +343,44 @@ www.on('error', function (error) {
 www.on('listening', function () {
   pretty.log(`www: listening on ${port}`)
 });
+
+app.use('/api/*', (req, res, next) => {
+  // parse login and password from headers
+  const b64auth = (req.headers.authorization || '').split(' ')[1] || ''
+  const [login, password] = Buffer.from(b64auth, 'base64').toString().split(':')
+
+  if (login && password && login === credentials.api.user && password === credentials.api.password) {
+    return next()
+  }
+
+  res.set('WWW-Authenticate', 'Basic realm="401"') // change this
+  res.status(401).send('Authentication required.') // custom message
+})
+
+app.get('/api/player/set', function(req, res) {
+  if(req.query.tid){
+    Tracks.get(req.query.tid).then(track => {
+      Player.set(track)
+      res.send('ok')
+      res.status(200)
+    }).catch(err => {
+      res.send(err.message)
+      res.status(400)
+    })
+  }
+})
+
+app.get('/api/player/status', function(req, res) {
+  let states = ['playing', 'paused', 'stopped']
+  if(states.includes(req.query.set)){
+    Player.update(req.query.set)
+    res.send('ok')
+    res.status(200)
+  } else {
+    res.send('Incorrect status')
+    res.status(400)
+  }
+})
 
 Chart.interval()
 Previous.update()
@@ -480,7 +517,7 @@ server.on('connection', socket => {
       socket.emit('meta', {
         type: 'error',
         action: 'flags',
-        message: `Flags: api error for '${data.query}'`
+        message: `Flags: api error '${err.message}'`
       })
     })
   })
@@ -502,8 +539,56 @@ server.on('connection', socket => {
   })
 
   socket.on('admin', function (data) {
-    if (!(socket.user.admin <= 0)) return
-    console.log(data)
+    if ((socket.user.admin <= 0)) return
+    switch (data.action) {
+      case 'search':
+        if (data.search.tags.includes('track')) {
+          db.tracks.search(data.search.query).then(tracks => {
+            socket.emit('admin', {
+              search: {
+                tracks: tracks
+              }
+            })
+          })
+        }
+        if(data.search.tags.includes('user')) {
+          db.users.search(data.search.query).then(users => {
+            socket.emit('admin', {
+              search: {
+                users: users
+              }
+            })
+          })
+        }
+        break;
+      case 'track':
+        db.tracks.get(data.track.id).then(tdata => {
+          socket.emit('admin', {
+            track: {
+              tdata: tdata
+            }
+          })
+        })
+        break;
+      case 'user':
+        db.users.get(data.user.id).then(udata => {
+          socket.emit('admin', {
+            user: {
+              udata: udata
+            }
+          })
+        })
+        break;
+      case 'vote':
+        db.votes.get(data.vote.uid, data.vote.tid).then(votes => {
+          socket.emit('admin', {
+            vote: {
+              votes: votes 
+            }
+          })
+        })
+        break;
+    }
 
   })
 

@@ -90,6 +90,15 @@ module.exports = {
           resolve(user)
         })
       })
+    },
+    search(query) {
+      return new Promise((resolve, reject) => {
+        User.find({
+          $text: { $search: query }
+        }).then(users => {
+          resolve(users)
+        })
+      })
     }
   },
   votes: {
@@ -131,6 +140,18 @@ module.exports = {
               pretty.log(`'${user.name}' voted '${flag}' on '${tid}'`, 2)
             })
           }
+        })
+      })
+    },
+    get(uid, tid){
+      return new Promise((resolve, reject) => {
+        Vote.find({
+          $or: [
+            { uid: uid },
+            { tid: tid }
+          ]
+        }).then(votes => {
+          resolve(votes)
         })
       })
     },
@@ -244,6 +265,15 @@ module.exports = {
           source: track.source
         }).then(track => {
           resolve(track)
+        })
+      })
+    },
+    search(query) {
+      return new Promise((resolve, reject) => {
+        Track.find({
+          $text: { $search: query }
+        }).then(tracks => {
+          resolve(tracks)
         })
       })
     }

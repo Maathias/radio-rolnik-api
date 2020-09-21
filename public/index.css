@@ -60,10 +60,12 @@ body {
 
 #player {
   position: relative;
+  overflow: hidden;
 }
 
 #player>.current {
   width: 100%;
+  height: 3.7rem;
   background: var(--color-primary);
   transition: background .3s ease-in-out;
   box-sizing: border-box;
@@ -71,10 +73,13 @@ body {
   white-space: nowrap;
   text-overflow: ellipsis;
   border-bottom: solid white 2px;
+  transition-duration: 1s;
+  transition-property: height,background;
 }
 
-#player>.current.off {
+#player.off>.current {
   background: var(--color-3grey);
+  height: 0;
 }
 
 #player>.status {
@@ -90,9 +95,14 @@ body {
 
 #nav {
   display: flex;
-  position: absolute;
+  position: fixed;
   bottom: 0;
+  left: 0;
+  right: 0;
+  max-width: 900px;
   width: 100%;
+  margin: auto;
+  border-top: 1px solid white;
 }
 
 #nav>.button {
@@ -152,6 +162,11 @@ a:hover {
   position: relative;
   cursor: pointer;
   overflow: hidden;
+  transition: border .1s ease-in-out;
+}
+
+.list>.track:hover {
+  border-left: 4px solid white;
 }
 
 .list>.track:nth-child(odd) {
@@ -189,9 +204,12 @@ a:hover {
 /* Panes */
 
 #panes {
-  height: calc(100% - (3.6rem + 3.4rem));
+  /* height: calc(100% - (3.6rem + 3.4rem)); */
+  height: 100%;
   overflow-x: hidden;
   background: inherit;
+  padding-bottom: 7rem;
+  box-sizing: border-box;
 }
 
 .pane {
@@ -328,6 +346,9 @@ a:hover {
 
 .pane.preview>.params>tbody>tr.highlight {
   font-weight: bold;
+  height: 2rem;
+  vertical-align: bottom;
+  text-decoration: underline;
 }
 
 .pane.preview>.params>tbody>tr.highlight::before {

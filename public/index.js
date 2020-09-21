@@ -129,8 +129,8 @@ class Track {
     return new Table([
       ['Informacje', true],
       ['Tytuł', this.title],
-      ['Autorzy', this.artists.join(', ')],
       ['Album', this.album],
+      ['Autorzy', this.artists.join(', ')],
       ['Czas', `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`],
       ['Top', true],
       ['Miejsce', this.placement ? `#${this.placement}` : '~'],
@@ -382,7 +382,10 @@ Player = {
   current: null,
   status: 'stopped',
   set(tid, status) {
-    if (!tid) return
+    if (!tid && status) {
+      this._status(status)
+      return
+    }
     Tracks.get(tid).then(track => {
       this.current = track
       Elements.player.current.innerHTML = ''
@@ -403,15 +406,15 @@ Player = {
     }
   },
   _off() {
-    Elements.player.current.classList.add('off')
+    Elements.player.container.classList.add('off')
     Elements.player.volume.change('stop-circle')
   },
   _pause() {
-    Elements.player.current.classList.add('off')
+    Elements.player.container.classList.add('off')
     Elements.player.volume.change('pause-circle')
   },
   _on() {
-    Elements.player.current.classList.remove('off')
+    Elements.player.container.classList.remove('off')
     Elements.player.volume.change('play-circled')
   }
 }
@@ -432,7 +435,7 @@ Panes = {
 Previous = {
   _list: [],
   add(previous) {
-    pretty.info('Previous', `new: ${tid}`)
+    pretty.info('Previous', `new: ${previous.tid}`)
     Tracks.get(previous.tid).then(track => {
       Elements.previous.prepend(track.el({ played: previous.played }))
     })
@@ -486,6 +489,7 @@ var Elements;
 window.onload = function () {
   Elements = {
     player: {
+      container: document.querySelector('#player'),
       current: document.querySelector('#player>.current'),
       volume: new Icon(document.querySelector('#player>.status>.volume'))
     },
@@ -666,6 +670,7 @@ window.onload = function () {
         this.successful = true
 
         Tracks.expireFlags()
+        if(Preview.track.id) Tracks.getFlag(Preview.track.id)
 
         Elements.auth.buttons.classList.remove('disabled')
         Elements.auth.prof.style.backgroundImage = `url('https://graph.facebook.com/${this.info.id}/picture?type=large')`
@@ -780,13 +785,19 @@ window.onload = function () {
     if (e.target.classList.value.startsWith('icon-')) {
       let target = e.target.classList.value.split(' ')[0].slice(5)
       switch (target) {
-        case 'link':
+        case 'export':
           if (navigator.share) {
             navigator.share({ // returns a promise
               title: 'radio-rolnik',
               text: `Sprawdź "${Preview.track.title}" na radio-rolnik`,
               url: location.href,
             })
+          } else if(navigator.clipboard) {
+            navigator.clipboard.writeText(location.href).then(function() {
+              new Modal('Skopiowano do schowka', `Link do "${Preview.track.title}" został skopiowany do schowka`)
+            }, function(err) {
+              new Modal('Nie można skopiować do schowka', `Wystąpił błąd podczas kopiowania linku do schowka`)
+            });
           }
           break;
         case 'music':
@@ -939,5 +950,7 @@ window.onload = function () {
     new Modal('Wystąpił problem', data.message)
     console.log('meta', data)
   });
+
+  Socket.on('admin', data => console.log(data))
 
 }

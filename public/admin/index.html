@@ -1,0 +1,40 @@
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#ca3e47">
+    <meta name="description" content="Radio Rolnik Nysa">
+    <title>radio-rolnik</title>
+  
+    <link rel="stylesheet" href="/admin/index.css">
+    <link rel="stylesheet" href="/fontello.css">
+    <script src="/admin/index.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
+  
+  </head>
+<body>
+  <div id="search">
+    <div class="controls">
+      <input type="text" id="text">
+      <input type="date" id="datein">
+      <input type="date" id="dateout">
+      <input type="submit" value="search">
+      <br>
+      <label for="user">user</label>
+      <input type="checkbox" id="user">
+      <label for="track">track</label>
+      <input type="checkbox" id="track">
+      <label for="vote">vote</label>
+      <input type="checkbox" id="vote">
+    </div>
+    <div class="list">
+      <div class="element">
+        <div class="image"></div>
+        <div class="title"></div>
+      </div>
+    </div>
+  </div>
+  <div id="preview"></div>
+</body>
+</html>
