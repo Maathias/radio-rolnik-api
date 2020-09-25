@@ -103,11 +103,19 @@ module.exports = {
   },
   votes: {
     timeValid: () => {
-      var monday = new Date();
-      monday.setHours(0, 0, 0)
-      monday.setDate(monday.getDate() - (monday.getDay() + 6) % 7);
+      switch (process.env.valid_type) {
+        default:
+        case 'monday':
+          var monday = new Date();
+          monday.setHours(0, 0, 0)
+          monday.setDate(monday.getDate() - (monday.getDay() + 6) % 7);
 
-      return monday
+          return monday
+        case 'date':
+          let date = new Date(...JSON.parse(process.env.valid_date))
+          return date
+      }
+
     },
     add(user, tid, flag) {
       return new Promise((resolve, reject) => {
@@ -128,7 +136,7 @@ module.exports = {
                   action: 'error'
                 })
                 resolve(vote)
-                pretty.log(`'${user.name}' changed vote to '${flag}' on '${tid}'`, 2)
+                pretty.log(`'${user.name}' changed vote to '${flag == 'up' ? ' up ' : flag}' on '${tid}'`, 2)
               })
           } else {
             Vote.create({
@@ -143,7 +151,7 @@ module.exports = {
         })
       })
     },
-    get(uid, tid){
+    get(uid, tid) {
       return new Promise((resolve, reject) => {
         Vote.find({
           $or: [

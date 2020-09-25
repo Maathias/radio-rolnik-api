@@ -1,4 +1,5 @@
-const express = require('express'),
+const dotenv = require('dotenv').config(),
+  express = require('express'),
   path = require('path'),
   cookieParser = require('cookie-parser'),
   http = require('http'),
@@ -136,8 +137,6 @@ const credentials = {
 const Previous = {
   tracks: [],
   new(tid, played = new Date) {
-    pretty.log(`Previous: new track`, 2)
-
     var previous = { tid: tid, played: played.getTime() }
     this.tracks.push(previous)
     this._send(previous)
@@ -165,6 +164,7 @@ const Previous = {
     set(track) {
       this.now = track
       Previous.new(this.now.id)
+      pretty.log(`Previous: new track`, 2)
       server.emit('player', {
         tid: this.now.id,
         status: this.status
@@ -220,8 +220,8 @@ const Previous = {
       }
     },
     _changed: true,
-    delay: 30e3,
-    threshold: 10,
+    delay: process.env.chart_delay,
+    threshold: process.env.chart_threshold,
     interval() {
       if (this._changed) {
         this.update()
@@ -318,16 +318,15 @@ if (new Date().getTime() >= credentials.spotify.lastToken.expires) {
 
 var app = express(),
   www = http.createServer(app),
-  port = 5500,
   server = io(www);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
-app.set('port', port);
+app.set('port', process.env.port);
 
-www.listen(port);
+www.listen(process.env.port);
 
 www.on('error', function (error) {
   if (error.syscall !== 'listen') {
@@ -335,13 +334,13 @@ www.on('error', function (error) {
   }
 
   pretty.log({
-    data: `Error: port ${port}: ${error.code}`,
+    data: `Error: port ${process.env.port}: ${error.code}`,
     action: 'error'
   })
 });
 
 www.on('listening', function () {
-  pretty.log(`www: listening on ${port}`)
+  pretty.log(`www: listening on ${process.env.port}`)
 });
 
 app.use('/api/*', (req, res, next) => {
@@ -357,8 +356,8 @@ app.use('/api/*', (req, res, next) => {
   res.status(401).send('Authentication required.') // custom message
 })
 
-app.get('/api/player/set', function(req, res) {
-  if(req.query.tid){
+app.get('/api/player/set', function (req, res) {
+  if (req.query.tid) {
     Tracks.get(req.query.tid).then(track => {
       Player.set(track)
       res.send('ok')
@@ -370,9 +369,9 @@ app.get('/api/player/set', function(req, res) {
   }
 })
 
-app.get('/api/player/status', function(req, res) {
+app.get('/api/player/status', function (req, res) {
   let states = ['playing', 'paused', 'stopped']
-  if(states.includes(req.query.set)){
+  if (states.includes(req.query.set)) {
     Player.update(req.query.set)
     res.send('ok')
     res.status(200)
@@ -551,7 +550,7 @@ server.on('connection', socket => {
             })
           })
         }
-        if(data.search.tags.includes('user')) {
+        if (data.search.tags.includes('user')) {
           db.users.search(data.search.query).then(users => {
             socket.emit('admin', {
               search: {
@@ -583,7 +582,7 @@ server.on('connection', socket => {
         db.votes.get(data.vote.uid, data.vote.tid).then(votes => {
           socket.emit('admin', {
             vote: {
-              votes: votes 
+              votes: votes
             }
           })
         })

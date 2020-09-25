@@ -370,7 +370,7 @@ Vote = {
     this._emit(track, flag)
   },
   _emit(track, flag) {
-    pretty.info('Vote', `${flag}' on ${track.title}`)
+    pretty.info('Vote', `'${flag}' on ${track.title}`)
     Socket.emit('vote', {
       tid: track.id,
       flag: flag
