@@ -7,7 +7,6 @@ const dotenv = require('dotenv').config(),
   fs = require('fs'),
   pretty = require('pretty-log'),
   io = require('socket.io'),
-  crypto = require('crypto'),
   SpotifyWebApi = require('spotify-web-api-node'),
   db = require('./db');
 
@@ -87,7 +86,7 @@ class User {
 function apiSearch(id) {
   return new Promise((resolve, reject) => {
     if (typeof id != 'string') return reject(new Error('Incorrect id, must by type String'))
-    spotify.getTrack(id).then(data => {
+    spotifySearch.getTrack(id).then(data => {
       resolve(data.body)
     }).catch(err => {
       reject(err)
@@ -96,50 +95,72 @@ function apiSearch(id) {
 
 }
 
-function refreshToken() {
-  spotify.clientCredentialsGrant().then(
-    function (data) {
-      pretty.log({
-        data: `Spotify: new token granted`,
-        action: 'info'
-      })
+function tokenWrite(content, path) {
+  fs.writeFile(path, JSON.stringify(content, null, 4), function (err) {
+    if (err) throw err
+  })
+}
 
-      credentials.spotify.lastToken = {
-        value: data.body['access_token'],
-        expires: new Date().getTime() + (data.body['expires_in'] * 1e3)
-      }
+function getAccess() {
+  spotifySearch.clientCredentialsGrant().then(function (data) {
+    pretty.log({ data: `Spotify: (search) new Access`, action: 'info' })
 
-      fs.writeFile('spotify-cred.json', JSON.stringify(credentials.spotify, null, 4), function (err) {
-        if (err) throw err
-      })
-
-      spotify.setAccessToken(credentials.spotify.lastToken.value)
-
-      setTimeout(function () {
-        refreshToken()
-      }, data.body['expires_in'] * 1e3)
-
-    },
-    function (err) {
-      pretty.log({
-        data: 'Spotify: something went wrong when retrieving an access token',
-        action: 'error'
-      });
+    credentials.spotify.Access = {
+      value: data.body['access_token'],
+      expires: new Date().getTime() + (data.body['expires_in'] * 1e3)
     }
-  )
+
+    tokenWrite(credentials.spotify, './spotify-cred.json')
+
+    spotifySearch.setAccessToken(credentials.spotify.Access.value)
+
+    setTimeout(function () {
+      getAccess()
+    }, data.body['expires_in'] * 1e3)
+
+  }
+  ).catch(err => {
+    console.error(err)
+  })
+
+}
+
+function refreshAccess() {
+  spotifyPlayer.refreshAccessToken().then(function (data) {
+    pretty.log({ data: `Spotify: (player) new Access`, action: 'info' })
+    spotifyPlayer.setAccessToken(data.body['access_token']);
+    credentials.player.Access = {
+      value: data.body['access_token'],
+      expires: new Date().getTime() + (data.body['expires_in'] * 1e3)
+    }
+    tokenWrite(credentials.player, './player-cred.json')
+  }
+  ).catch(err => {
+    console.error(err)
+  })
 }
 
 const credentials = {
   spotify: require('./spotify-cred.json'),
+  player: require('./player-cred.json'),
   api: require('./api-cred.json')
 }
 
 const Previous = {
   tracks: [],
-  new(tid, played = new Date) {
-    var previous = { tid: tid, played: played.getTime() }
+  new(tid, played) {
+    if (this.tracks[this.tracks.length - 1]) if (this.tracks[this.tracks.length - 1].tid == tid) {
+      return
+    }
+
+    db.history.add(tid)
+
+    var previous = this._create(tid, played)
     this.tracks.push(previous)
     this._send(previous)
+  },
+  _create(tid, played = new Date) {
+    return { tid: tid, played: played.getTime() }
   },
   _send(previous) {
     server.emit('previous', {
@@ -149,8 +170,11 @@ const Previous = {
   async update() {
     this.tracks = []
     for (previous of await db.history.get()) {
-      this.new(previous.tid, previous.createdAt)
+      var previous = this._create(previous.tid, previous.createdAt)
+      this.tracks.unshift(previous)
+      this._send(previous)
     }
+    return this.tracks
   },
   get() {
     return {
@@ -159,20 +183,22 @@ const Previous = {
   }
 },
   Player = {
-    now: {},
+    current: {},
     status: 'paused',
-    set(track) {
-      this.now = track
-      Previous.new(this.now.id)
-      pretty.log(`Previous: new track`, 2)
+    set(track, status = this.status) {
+      this.current = track
+      this.status = status
+      Previous.new(this.current.id)
+      pretty.log(`Player: new track - ${this.current.title}`, 2)
       server.emit('player', {
-        tid: this.now.id,
+        tid: this.current.id,
         status: this.status
       })
-      db.history.add(track.id)
     },
     update(status) {
+      if (this.status === status) return
       this.status = status
+      pretty.log(`Player: status update: ${status}`, 2)
       server.emit('player', {
         status: this.status
       })
@@ -290,31 +316,108 @@ const Previous = {
       delete this._authed[socket.user.id][socket.id]
       this._auth--
     }
+  },
+  Playback = {
+    current: {},
+    _poll: process.env.playback_poll,
+    _timings: (function (timings) {
+      let out = []
+      for (let p of timings) {
+        out.push([(p[0][0] * 60) + p[0][1], (p[1][0] * 60) + p[1][1]])
+      }
+      return out
+    })(require('./timings.json')),
+    interval() {
+      if(this._poll) this.update()
+      clearTimeout(this._timeout)
+      this._timeout = setTimeout(function () { Playback.interval() }, this.getDelay() * 1e3)
+    },
+    update() {
+      spotifyPlayer.getMyCurrentPlaybackState().then(data => {
+        Playback.current = data.body
+        Playback.checkTrack()
+      }).catch(err => {
+        console.error(err)
+      })
+    },
+    checkTrack() {
+      if (this.current.is_playing === undefined) return Player.update('stopped')
+      if (this.current.item.id != Player.current.id) {
+        if (this.current.is_playing) Tracks.get(this.current.item.id).then(track => {
+          Player.set(track, 'playing')
+        })
+        else this.checkPlaying()
+      } else this.checkPlaying()
+    },
+    checkPlaying() {
+      if (this.current.is_playing ^ Player.status == 'playing') {
+        Player.update(this.current.is_playing ? 'playing' : 'paused')
+      }
+    },
+    getDelay() {
+      let date = new Date(),
+        minutes = date.getMinutes() + (date.getHours() * 60),
+        delay, last
+
+      for (let i in this._timings) {
+        let [start, end] = this._timings[i]
+
+        if (start - minutes <= 0 && end - minutes >= 0) {
+          delay = 0
+          break
+        } else {
+          if (last < 0 && start - minutes > 0) {
+            delay = start - minutes
+            break
+          }
+          delay = start - minutes
+          last = end - minutes
+        }
+      }
+      if (delay < 0) {
+        delay = 1440 - minutes
+      }
+
+      if (last <= 1 && last >= 0) return 5
+      if (delay <= 1) return 5
+      else return (delay - 1) * 60
+    }
   }
 
-var spotify = new SpotifyWebApi({
+var spotifySearch = new SpotifyWebApi({
   clientId: credentials.spotify.clientId,
-  clientSecret: credentials.spotify.clientSecret,
-  redirectUri: "https://radio-rolnik.mtps.pl/logedin"
-})
-
-if (new Date().getTime() >= credentials.spotify.lastToken.expires) {
-  pretty.log({
-    data: `Spotify: lastToken is expired`,
-    action: 'info'
+  clientSecret: credentials.spotify.clientSecret
+}),
+  spotifyPlayer = new SpotifyWebApi({
+    clientId: credentials.spotify.clientId,
+    clientSecret: credentials.spotify.clientSecret,
+    refreshToken: credentials.player.Refresh.value,
+    redirectUri: 'https://radio-rolnik.mtps.pl/spotify/done'
   })
-  refreshToken()
+
+// search token
+if (new Date().getTime() >= credentials.spotify.Access.expires) {
+  pretty.log({ data: `Spotify: (search) last Access is expired`, action: 'info' })
+  getAccess(spotifySearch)
 } else {
-  spotify.setAccessToken(credentials.spotify.lastToken.value)
+  spotifySearch.setAccessToken(credentials.spotify.Access.value)
   setTimeout(function () {
-    pretty.log({
-      data: `Spotify: current token expired`,
-      action: 'info'
-    })
-    refreshToken()
-  }, (credentials.spotify.lastToken.expires - new Date().getTime()))
+    pretty.log({ data: `Spotify: (search) current token expired`, action: 'info' })
+    getAccess(spotifySearch)
+  }, (credentials.spotify.Access.expires - new Date().getTime()))
 }
 
+// player token
+if (new Date().getTime() >= credentials.player.Access.expires) {
+  pretty.log({ data: `Spotify: (player) last Access is expired`, action: 'info' })
+  refreshAccess()
+} else {
+  spotifyPlayer.setAccessToken(credentials.player.Access.value)
+  setTimeout(function () {
+    pretty.log({ data: `Spotify: (player) current token expired`, action: 'info' })
+    refreshAccess()
+  }, (credentials.player.Access.expires - new Date().getTime()))
+}
 
 var app = express(),
   www = http.createServer(app),
@@ -381,8 +484,21 @@ app.get('/api/player/status', function (req, res) {
   }
 })
 
+app.get('/api/spotify/login', function (req, res) {
+  var scopes = ['user-read-private', 'user-read-email', 'user-read-playback-state', 'user-read-currently-playing'],
+    redirect = spotifyPlayer.createAuthorizeURL(scopes, 'what')
+
+  res.end(redirect)
+})
+
+app.get('/spotify/done', function (req, res) {
+  res.end('<script>window.onload=function(){window.exit(location)}</script>')
+})
+
+Previous.update().then(tracks => {
+  Playback.interval()
+})
 Chart.interval()
-Previous.update()
 
 server.on('connection', socket => {
 
@@ -397,7 +513,7 @@ server.on('connection', socket => {
 
   socket.on('player', function () {
     socket.emit('player', {
-      tid: Player.now.id,
+      tid: Player.current.id,
       status: Player.status
     })
   })
@@ -476,20 +592,20 @@ server.on('connection', socket => {
     if (typeof data.source != 'string') return
 
     if (data.source == 'spotify') {
-      spotify.searchTracks(data.query)
-        .then(function (response) {
+      spotifySearch.searchTracks(data.query)
+        .then(response => {
           socket.emit('results', {
             tids: response.body.tracks.items.map(tdata => tdata.id),
             total: response.body.tracks.total
           })
-        }, function (err) {
+        }).catch(err => {
           socket.emit('meta', {
             type: 'error',
             action: 'search',
             message: `'${data.query}' not found: ${err.message}`
           })
           pretty.log({ data: err.message, action: 'error' });
-        });
+        })
     }
   });
 
@@ -586,6 +702,32 @@ server.on('connection', socket => {
             }
           })
         })
+        break;
+      case 'spotify':
+        if (data.spotify.code) {
+          spotifyPlayer.authorizationCodeGrant(data.spotify.code).then(
+            function (data) {
+              pretty.log({ data: `Spotify: (player) log in`, action: 'info' })
+
+              credentials.player.Access.value = data.body['access_token']
+              credentials.player.Access.expires = new Date().getTime() + (data.body['expires_in'] * 1e3)
+              credentials.player.Refresh.value = data.body['refresh_token']
+              tokenWrite(credentials.player, './player-cred.json')
+              spotifyPlayer.setAccessToken(data.body['access_token']);
+              spotifyPlayer.setRefreshToken(data.body['refresh_token']);
+            },
+            function (err) {
+              console.log('Something went wrong!', err);
+            }
+          );
+        }
+        if (data.spotify.playing) {
+          spotifyPlayer.getMyCurrentPlaybackState().then(data => {
+            console.log(data)
+          }).catch(err => {
+            console.error(err)
+          })
+        }
         break;
     }
 

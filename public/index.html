@@ -9,7 +9,8 @@
   <title>radio-rolnik</title>
 
   <link rel="stylesheet" href="/index.css">
-  <link rel="stylesheet" href="fontello.css">
+  <link rel="stylesheet" href="/tree.min.css">
+  <link rel="stylesheet" href="/fontello.css">
   <script src="/index.js"></script>
   <script src="/socket.io/socket.io.js"></script>
   <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
@@ -136,17 +137,55 @@
             <div class="value"><a target="_blank" href="/regulamin.html">Regulamin</a></div>
           </div>
           <div class="section">Facebook
-            <div class="value"><a target="_blank" href="https://www.facebook.com/Radio-Rolnik-Nysa-116248583541852">Radio Rolnik Nysa</a></div>
+            <div class="value"><a target="_blank"
+                href="https://www.facebook.com/Radio-Rolnik-Nysa-116248583541852">Radio Rolnik Nysa</a></div>
           </div>
           <div class="section">E-Mail
             <div class="value"><a target="_blank" href="mailto:radio-rolnik@mtps.pl">radio-rolnik@mtps.pl</a></div>
           </div>
           <div class="section">Wersja
-            <div class="value">v1.2.0</div>
+            <div class="value">v1.3.0</div>
           </div>
         </div>
 
       </div>
+
+      <div class="pane admin">
+        <div class="search">
+          <div class="controls">
+            <input type="text" id="text">
+            <input type="date" id="datein">
+            <input type="date" id="dateout">
+            <input type="submit" value="search" onclick="Admin.send();">
+            <br>
+            <label for="search">search</label>
+            <input type="radio" name='action' id="search" checked>
+
+            <label for="get">get</label>
+            <input type="radio" name='action' id="get">
+            <br>
+            <label for="user">user</label>
+            <input type="checkbox" id="user">
+
+            <label for="track">track</label>
+            <input type="checkbox" id="track">
+
+            <label for="vote">vote</label>
+            <input type="checkbox" id="vote">
+          </div>
+          <div class="list">
+            <div class="element">
+              <div class="image"></div>
+              <div class="title"></div>
+            </div>
+          </div>
+        </div>
+        <div class="preview"></div>
+        <div class="autoplayer">
+          <input type="button" value="Spotify Login" onclick="Admin.spotify.login()">
+        </div>
+      </div>
+
     </div>
 
     <div id="nav">
@@ -167,6 +206,9 @@
       <div class="button" data-target='settings'>
         <i class="icon-cog-alt"></i>
         <span class="label">Ustawienia</span></div>
+      <div class="button hidden" data-target='admin'>
+        <i class="icon-flag"></i>
+        <span class="label">Admin</span></div>
     </div>
   </div>
 </body>

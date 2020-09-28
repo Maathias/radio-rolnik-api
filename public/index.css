@@ -73,8 +73,9 @@ body {
   white-space: nowrap;
   text-overflow: ellipsis;
   border-bottom: solid white 2px;
-  transition-duration: 1s;
+  transition-duration: .5s;
   transition-property: height,background;
+  transition-timing-function: ease-in-out;
 }
 
 #player.off>.current {
@@ -524,4 +525,10 @@ a:hover {
   text-align: center;
   padding: .5rem;
   cursor: pointer;
+}
+
+/* Admin */
+
+.pane.admin {
+  padding: .5rem;
 }

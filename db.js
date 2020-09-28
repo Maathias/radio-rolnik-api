@@ -289,7 +289,7 @@ module.exports = {
   history: {
     get() {
       return new Promise((resolve, reject) => {
-        Previous.find({}, {}, { limit: 20 }).then(previous => {
+        Previous.find({}).sort({ createdAt: -1 }).limit(20).then(previous => {
           resolve(previous)
         })
       })

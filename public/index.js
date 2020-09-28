@@ -95,7 +95,7 @@ class Track {
     if (options.played) {
       var played = new Date(options.played)
       iPlayed.classList.add('played')
-      iPlayed.append(`${['Nd', 'Pn', 'Wt', 'Śr', 'Cz', 'Pt', 'Sb'][played.getDay()]}, ${played.getHours()}:${played.getMinutes()}`)
+      iPlayed.append(`${['Nd', 'Pn', 'Wt', 'Śr', 'Cz', 'Pt', 'Sb'][played.getDay()]}, ${played.getHours()}:${played.getMinutes() < 10 ? '0' : ''}${played.getMinutes()}`)
     }
 
     // icons.append(this.votes)
@@ -259,11 +259,11 @@ class Icon {
 
 pretty = {
   info(where, text) {
-    console.log(`%c# ${where}${'\t'.repeat(4 - (((where.length + 2) - (where.length + 2) % 4) / 4))}${text}`, 'color: cyan')
+    console.log(`%c# ${where}${'\t'.repeat(4 - (((where.length + 2) - (where.length + 2) % 4) / 4))}${text}`, 'color: azure')
   }
 }
 
-Tracks = {
+const Tracks = {
   _list: {},
   _promises: {},
   get(tid) {
@@ -302,255 +302,171 @@ Tracks = {
     this._list[tid].flag = flag
     if (Preview.track.id == tid) Preview.flags.set(flag)
   },
-}
+},
+  Hash = {
+    current: location.hash.slice(1),
+    set(target) {
+      location.hash = target
+    },
+    change() {
+      this.current = location.hash.slice(1)
+      if (this.current.indexOf(':')) this.current = this.current.split(':')[0]
+      switch (this.current) {
+        case 'history':
+        case 'search':
+        case 'chart':
+        case 'settings':
+        case 'admin':
+          document.title = `radio-rolnik - ${{
+            history: 'Historia',
+            search: 'Wyszukaj',
+            chart: 'Top',
+            settings: 'Ustawienia',
+            admin: 'Administracja'
+          }[this.current]}`
 
-Hash = {
-  current: location.hash.slice(1),
-  set(target) {
-    switch (target) {
-      case 'preview':
-        location.hash = this.setTrack(Preview.track.id)
-        break;
-      case 'history':
-      case 'search':
-      case 'chart':
-      case 'settings':
-        location.hash = target
-        break;
-      default:
-        if (target.startsWith('track:')) {
-          location.hash = target
-        }
-    }
-  },
-  change() {
-    this.current = location.hash.slice(1)
-    if(this.current.indexOf(':')) this.current = this.current.split(':')[0]
-    switch (this.current) {
-      case 'history':
-      case 'search':
-      case 'chart':
-      case 'settings':
-        document.title = `radio-rolnik - ${{
-          history: 'Historia',
-          search: 'Wyszukaj',
-          chart: 'Top',
-          settings: 'Ustawienia',
-        }[this.current]}`
-        Panes.switch(this.current)
-        gtag('event', 'pageview', {
-          'page_path': location.pathname + location.hash
-        });
-        break;
-      case 'track':
-        let tid = this.getTrack()
-        if (tid == 'undefined') break;
-        Tracks.get(tid).then(track => {
-          document.title = `radio-rolnik - "${track.title}"`
-          if (Preview.track.id != track.id) Preview.goto(track)
+          Panes.switch(this.current)
           gtag('event', 'pageview', {
             'page_path': location.pathname + location.hash
           });
-        })
-        break;
-    }
-  },
-  setTrack(tid) {
-    return `track:${tid}`
-  },
-  getTrack() {
-    let hash = location.hash.slice(1)
-    if (!hash.startsWith('track:')) return
-    return hash.slice(6)
-  }
-}
+          break;
 
-Vote = {
-  send(track, flag) {
-    this._emit(track, flag)
-  },
-  _emit(track, flag) {
-    pretty.info('Vote', `'${flag}' on ${track.title}`)
-    Socket.emit('vote', {
-      tid: track.id,
-      flag: flag
-    })
-  }
-}
-
-Player = {
-  current: null,
-  status: 'stopped',
-  set(tid, status) {
-    if (!tid && status) {
-      this._status(status)
-      return
-    }
-    Tracks.get(tid).then(track => {
-      this.current = track
-      Elements.player.current.innerHTML = ''
-      Elements.player.current.append(track.el())
-      if (!Object.keys(Preview.track).length) Preview.change(track)
-      this._status(status)
-    }).catch(err => {
-      console.error(err)
-    })
-
-  },
-  _status(status) {
-    this.status = status
-    switch (status) {
-      case 'playing': this._on(); break;
-      case 'paused': this._pause(); break;
-      case 'stopped': this._off(); break;
-    }
-  },
-  _off() {
-    Elements.player.container.classList.add('off')
-    Elements.player.volume.change('stop-circle')
-  },
-  _pause() {
-    Elements.player.container.classList.add('off')
-    Elements.player.volume.change('pause-circle')
-  },
-  _on() {
-    Elements.player.container.classList.remove('off')
-    Elements.player.volume.change('play-circled')
-  }
-}
-
-Panes = {
-  current: 'history',
-  switch(id) {
-    document.querySelector(`.pane.${this.current}`).classList.remove('active')
-    document.querySelector(`#nav>.button[data-target=${this.current}]`).classList.remove('active')
-
-    document.querySelector(`.pane.${id}`).classList.add('active')
-    document.querySelector(`#nav>.button[data-target=${id}]`).classList.add('active')
-
-    this.current = id
-  }
-}
-
-Previous = {
-  _list: [],
-  add(previous) {
-    pretty.info('Previous', `new: ${previous.tid}`)
-    Tracks.get(previous.tid).then(track => {
-      Elements.previous.prepend(track.el({ played: previous.played }))
-    })
-  },
-  refresh(previous) {
-    pretty.info('Previous', `refresh`)
-    Elements.previous.innerHTML = ''
-    this._list = previous
-    for (let tdata of previous) {
-      Tracks.get(tdata.tid).then(track => {
-        Elements.previous.prepend(track.el({ played: tdata.played }))
-      })
-    }
-  }
-}
-
-Search = {
-  list: [],
-  update(tids, total) {
-    pretty.info('Search', `${total} results`)
-
-    Elements.search.container.innerHTML = ''
-    Elements.search.info.textContent = `${total} utworów`
-
-    for (let tid of tids) {
-      Tracks.get(tid).then(track => {
-        this._append(track)
-      })
-    }
-  },
-  submit() {
-    var value = Elements.search.input.value
-    if (value === '') return
-
-    Elements.search.info.textContent = ''
-    Socket.emit('search', {
-      query: value,
-      source: 'spotify'
-    })
-  },
-  _append(result) {
-    this.list.push(result)
-    Elements.search.container.append(result.el())
-  }
-}
-
-var Preview, Socket, Offline, Auth, Chart;
-
-var Elements;
-
-window.onload = function () {
-  Elements = {
-    player: {
-      container: document.querySelector('#player'),
-      current: document.querySelector('#player>.current'),
-      volume: new Icon(document.querySelector('#player>.status>.volume'))
-    },
-    panes: {
-      history: {
-        pane: document.querySelector('.pane.history'),
-        button: document.querySelector('#nav>.button.history')
-      },
-      search: {
-        pane: document.querySelector('.pane.search'),
-        button: document.querySelector('#nav>.button.search')
-      },
-      chart: {
-        pane: document.querySelector('.pane.chart'),
-        button: document.querySelector('#nav>.button.chart')
-      },
-      preview: {
-        pane: document.querySelector('.pane.preview'),
-        button: document.querySelector('#nav>.button.preview')
-      },
-      settings: {
-        pane: document.querySelector('.pane.settings'),
-        button: document.querySelector('#nav>.button.settings')
+        case 'track':
+          let tid = this.getTrack()
+          if (tid == 'undefined') break;
+          Tracks.get(tid).then(track => {
+            document.title = `radio-rolnik - "${track.title}"`
+            if (Preview.track.id != track.id) Preview.goto(track)
+            gtag('event', 'pageview', {
+              'page_path': location.pathname + location.hash
+            });
+          })
+          break;
       }
     },
-    previous: document.querySelector('#previous'),
-    search: {
-      container: document.querySelector('#results'),
-      info: document.querySelector('.pane.search>.query>.icons>.info'),
-      input: document.querySelector('.pane.search>.query>.input'),
+    setTrack(tid) {
+      return `track:${tid}`
     },
-    preview: {
-      albumart: document.querySelector('.pane.preview>.albumart'),
-      title: document.querySelector('.pane.preview>.title'),
-      artists: document.querySelector('.pane.preview>.artists'),
-      table: document.querySelector('.pane.preview>.params')
+    getTrack() {
+      let hash = location.hash.slice(1)
+      if (!hash.startsWith('track:')) return
+      return hash.slice(6)
+    }
+  },
+  Vote = {
+    send(track, flag) {
+      this._emit(track, flag)
     },
-    flags: {
-      up: document.querySelector('.pane.preview>.buttons>.icon-thumbs-up'),
-      down: document.querySelector('.pane.preview>.buttons>.icon-thumbs-down'),
-      report: document.querySelector('.pane.preview>.buttons>.icon-flag')
-    },
-    offline: document.querySelector('#offline'),
-    auth: {
-      prof: document.querySelector('#profilePic'),
-      username: document.querySelector('#username'),
-      buttons: document.querySelector('.pane.preview>.buttons'),
-      params: document.querySelector('.pane.settings>.params'),
-      fbLogin: document.querySelector('.pane.settings>.actions>[data-target=fb]')
-    },
-    chart: document.querySelector('.chart>.list')
-  }
+    _emit(track, flag) {
+      pretty.info('Vote', `'${flag}' on ${track.title}`)
+      Socket.emit('vote', {
+        tid: track.id,
+        flag: flag
+      })
+    }
+  },
+  Player = {
+    current: null,
+    status: 'stopped',
+    set(tid, status) {
+      if (!tid && status) {
+        this._status(status)
+        return
+      }
+      Tracks.get(tid).then(track => {
+        this.current = track
+        Elements.player.current.innerHTML = ''
+        Elements.player.current.append(track.el())
+        if (!Object.keys(Preview.track).length) Preview.change(track)
+        this._status(status)
+      }).catch(err => {
+        console.error(err)
+      })
 
+    },
+    _status(status) {
+      this.status = status
+      switch (status) {
+        case 'playing': this._on(); break;
+        case 'paused': this._pause(); break;
+        case 'stopped': this._off(); break;
+      }
+    },
+    _off() {
+      Elements.player.container.classList.add('off')
+      Elements.player.volume.change('stop-circle')
+    },
+    _pause() {
+      Elements.player.container.classList.add('off')
+      Elements.player.volume.change('pause-circle')
+    },
+    _on() {
+      Elements.player.container.classList.remove('off')
+      Elements.player.volume.change('play-circled')
+    }
+  },
+  Panes = {
+    current: 'history',
+    switch(id) {
+      document.querySelector(`.pane.${this.current}`).classList.remove('active')
+      document.querySelector(`#nav>.button[data-target=${this.current}]`).classList.remove('active')
+
+      document.querySelector(`.pane.${id}`).classList.add('active')
+      document.querySelector(`#nav>.button[data-target=${id}]`).classList.add('active')
+
+      this.current = id
+    }
+  },
+  Previous = {
+    _list: [],
+    add(previous) {
+      pretty.info('Previous', `new: ${previous.tid}`)
+      Tracks.get(previous.tid).then(track => {
+        Elements.previous.prepend(track.el({ played: previous.played }))
+      })
+    },
+    async refresh(previous) {
+      pretty.info('Previous', `refresh`)
+      Elements.previous.innerHTML = ''
+      this._list = previous
+      for (let tdata of previous) {
+        let track = await Tracks.get(tdata.tid)
+        Elements.previous.prepend(track.el({ played: tdata.played }))
+      }
+    }
+  },
+  Search = {
+    list: [],
+    update(tids, total) {
+      pretty.info('Search', `${total} results`)
+
+      Elements.search.container.innerHTML = ''
+      Elements.search.info.textContent = `${total} utworów`
+
+      for (let tid of tids) {
+        Tracks.get(tid).then(track => {
+          this._append(track)
+        })
+      }
+    },
+    submit() {
+      var value = Elements.search.input.value
+      if (value === '') return
+
+      Elements.search.info.textContent = ''
+      Socket.emit('search', {
+        query: value,
+        source: 'spotify'
+      })
+    },
+    _append(result) {
+      this.list.push(result)
+      Elements.search.container.append(result.el())
+    }
+  },
   Preview = {
     track: {},
     flags: {
-      el: {
-        up: document.querySelector('.pane.preview>.buttons>.icon-thumbs-up'),
-        down: document.querySelector('.pane.preview>.buttons>.icon-thumbs-down'),
-        report: document.querySelector('.pane.preview>.buttons>.icon-flag'),
-      },
       status: null,
       _clicked(flag, status = false) {
         if (status) Elements.flags[flag].classList.add('clicked')
@@ -596,8 +512,7 @@ window.onload = function () {
       Elements.preview.table.innerHTML = ''
       Elements.preview.table.append(...this.track.tbody().children)
     }
-  }
-
+  },
   Offline = {
     _status: true,
     change(status) {
@@ -613,8 +528,7 @@ window.onload = function () {
     _false() {
       Elements.offline.classList.add('online')
     },
-  }
-
+  },
   Auth = {
     successful: false,
     autologin: Storage.Local.get('autologin') === false ? false : true,
@@ -670,12 +584,16 @@ window.onload = function () {
         this.successful = true
 
         Tracks.expireFlags()
-        if(Preview.track.id) Tracks.getFlag(Preview.track.id)
+        if (Preview.track.id) Tracks.getFlag(Preview.track.id)
 
         Elements.auth.buttons.classList.remove('disabled')
         Elements.auth.prof.style.backgroundImage = `url('https://graph.facebook.com/${this.info.id}/picture?type=large')`
         Elements.auth.username.textContent = this.info.name
         Elements.auth.fbLogin.classList.add('hidden')
+
+        if (this.info.admin > 0) {
+          document.querySelector(`#nav>.button[data-target=admin]`).classList.remove('hidden')
+        }
       } else {
         this.successful = false
         Elements.auth.buttons.classList.add('disabled')
@@ -715,10 +633,8 @@ window.onload = function () {
       this.finally(false)
       Socket.emit('clear', true)
     }
-  }
-
+  },
   Chart = {
-    el: document.querySelector('.chart>.list'),
     tids: [],
     values: {},
     serial: null,
@@ -730,13 +646,127 @@ window.onload = function () {
       this.values = values
       this.serial = serial
 
-      this.el.innerHTML = ''
+      Elements.chart.innerHTML = ''
       for (let tid of tids) {
         let track = await Tracks.get(tid)
         track.votes = values[tid]
         track.placement = tids.indexOf(tid) + 1
-        this.el.append(track.el())
+
+        Elements.chart.append(track.el())
         if (Preview.track.id == tid) Preview.update()
+      }
+    }
+  },
+  Admin = {
+    get: {
+      track() { },
+      user() { },
+      vote() { },
+    },
+    spotify: {
+      login() {
+        fetch('/api/spotify/login', {
+          headers: new Headers().set('Authorization', 'Basic ' + btoa(`${'radio-rolnik'}:${'u9023tnjiowrg'}`).toString('base64'))
+        }).then(response => response.text())
+          .then(url => {
+            var loginpage = window.open(url)
+            loginpage.exit = function(data){
+              loginpage.close()
+              data = data.search.slice(1).split('&').map(param => param.split('='))
+              params = {}
+              for(let param of data){
+                params[param[0]] = param[1]
+              }
+              Admin.spotify.code(params.code)
+            }
+          })
+      },
+      code(code){
+        Socket.emit('admin', {
+          action: 'spotify',
+          spotify: {
+            code: code
+          }
+        })
+      }
+    },
+    search(query, tags) {
+      Socket.emit('admin', {
+        action: 'search',
+        search: {
+          query: query,
+          tags: tags
+        }
+      })
+    },
+    receive(data) {
+      console.log(data)
+    },
+    send() {
+      console.log(Elements.admin.search.query.value)
+    }
+  }
+
+var Elements, Socket;
+
+window.onload = function () {
+  Elements = {
+    player: {
+      container: document.querySelector('#player'),
+      current: document.querySelector('#player>.current'),
+      volume: new Icon(document.querySelector('#player>.status>.volume'))
+    },
+    panes: {
+      history: {
+        pane: document.querySelector('.pane.history'),
+        button: document.querySelector('#nav>.button.history')
+      },
+      search: {
+        pane: document.querySelector('.pane.search'),
+        button: document.querySelector('#nav>.button.search')
+      },
+      chart: {
+        pane: document.querySelector('.pane.chart'),
+        button: document.querySelector('#nav>.button.chart')
+      },
+      preview: {
+        pane: document.querySelector('.pane.preview'),
+        button: document.querySelector('#nav>.button.preview')
+      },
+      settings: {
+        pane: document.querySelector('.pane.settings'),
+        button: document.querySelector('#nav>.button.settings')
+      }
+    },
+    previous: document.querySelector('#previous'),
+    search: {
+      container: document.querySelector('#results'),
+      info: document.querySelector('.pane.search>.query>.icons>.info'),
+      input: document.querySelector('.pane.search>.query>.input'),
+    },
+    preview: {
+      albumart: document.querySelector('.pane.preview>.albumart'),
+      title: document.querySelector('.pane.preview>.title'),
+      artists: document.querySelector('.pane.preview>.artists'),
+      table: document.querySelector('.pane.preview>.params')
+    },
+    flags: {
+      up: document.querySelector('.pane.preview>.buttons>.icon-thumbs-up'),
+      down: document.querySelector('.pane.preview>.buttons>.icon-thumbs-down'),
+      report: document.querySelector('.pane.preview>.buttons>.icon-flag')
+    },
+    offline: document.querySelector('#offline'),
+    auth: {
+      prof: document.querySelector('#profilePic'),
+      username: document.querySelector('#username'),
+      buttons: document.querySelector('.pane.preview>.buttons'),
+      params: document.querySelector('.pane.settings>.params'),
+      fbLogin: document.querySelector('.pane.settings>.actions>[data-target=fb]')
+    },
+    chart: document.querySelector('.chart>.list'),
+    admin: {
+      search: {
+        query: document.querySelector('#text')
       }
     }
   }
@@ -792,10 +822,10 @@ window.onload = function () {
               text: `Sprawdź "${Preview.track.title}" na radio-rolnik`,
               url: location.href,
             })
-          } else if(navigator.clipboard) {
-            navigator.clipboard.writeText(location.href).then(function() {
+          } else if (navigator.clipboard) {
+            navigator.clipboard.writeText(location.href).then(function () {
               new Modal('Skopiowano do schowka', `Link do "${Preview.track.title}" został skopiowany do schowka`)
-            }, function(err) {
+            }, function (err) {
               new Modal('Nie można skopiować do schowka', `Wystąpił błąd podczas kopiowania linku do schowka`)
             });
           }
@@ -951,6 +981,8 @@ window.onload = function () {
     console.log('meta', data)
   });
 
-  Socket.on('admin', data => console.log(data))
+  Socket.on('admin', function (data) {
+    Admin.receive(data)
+  })
 
 }
