@@ -1,8 +1,9 @@
 {
-  "name": "radio-rolnik",
+  "name": "radio-rolnik-api",
   "version": "1.3.0",
   "description": "rolniknysa radio",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon index"
@@ -15,22 +16,19 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Maathias/radio-rolnik.git"
+    "url": "git+https://github.com/Maathias/radio-rolnik-api.git"
   },
   "author": "Mateusz Pstrucha",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/Maathias/radio-rolnik/issues"
+    "url": "https://github.com/Maathias/radio-rolnik-api/issues"
   },
-  "homepage": "https://github.com/Maathias/radio-rolnik#readme",
+  "homepage": "https://github.com/Maathias/radio-rolnik-api#readme",
   "dependencies": {
     "cookie-parser": "^1.4.5",
     "dotenv": "^8.2.0",
     "express": "^4.17.1",
-    "express-metatag": "^0.1.0",
-    "mongoose": "^5.10.0",
-    "pretty-log": "github:maathias/pretty-log",
-    "socket.io": "^2.3.0",
-    "spotify-web-api-node": "^4.0.0"
+    "mongoose": "^5.10.7",
+    "socket.io": "^2.4.1"
   }
 }
