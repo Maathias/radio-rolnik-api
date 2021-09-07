@@ -4,19 +4,27 @@ import { join } from 'path'
 import cookieParser from 'cookie-parser'
 import { createServer } from 'http'
 import fs from 'fs'
-import io from 'socket.io'
 import db from './db.js'
+
+import track from './routes/track.js'
+import status from './routes/status.js'
+import history from './routes/history.js'
+import search from './routes/search.js'
 
 dotenv.config()
 
 var app = express(),
-	www = createServer(app),
-	server = io(www)
+	www = createServer(app)
 
 app.use(json())
 app.use(urlencoded({ extended: false }))
 app.use(cookieParser())
 app.set('port', process.env.port)
+
+app.use('/track', track)
+app.use('/status', status)
+app.use('/history', history)
+app.use('/search', search)
 
 www.listen(process.env.port)
 
@@ -30,12 +38,4 @@ www.on('error', function (error) {
 
 www.on('listening', function () {
 	console.log(`www: listening on ${process.env.port}`)
-})
-
-server.on('connection', (socket) => {
-	console.log('socket connected')
-
-	socket.on('disconnect', function () {
-		console.log('socket gone')
-	})
 })
