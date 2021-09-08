@@ -1,0 +1,171 @@
+swagger: '2.0'
+info:
+  title: radio-rolnik API
+  version: 1.0.0
+  description: API for radio-rolnik project
+host: radio-rolnik.mtps.pl
+tags:
+  - name: track
+    description: Get track metadata
+  - name: status
+    description: Get currently playing track
+  - name: history
+    description: Get previous and next tracks
+  - name: search
+    description: Search for tracks
+schemes:
+  - http
+  - https
+paths:
+  /track/{id}:
+    get:
+      tags:
+        - track
+      summary: Get track by track id
+      operationId: getTrackById
+      parameters:
+        - name: id
+          in: path
+          description: ID of track to return
+          required: true
+          type: integer
+      responses:
+        200:
+          description: OK
+          schema:
+            $ref: '#/definitions/track'
+      produces:
+        - application/json
+  /status:
+    get:
+      tags:
+        - status
+      summary: Get track, with additional metadata
+      operationId: getStatus
+      responses:
+        200:
+          description: OK
+          schema:
+            $ref: '#/definitions/status'
+      produces:
+        - application/json
+  /history/previous:
+    get:
+      tags:
+        - history
+      summary: Get previous tracks
+      operationId: getPreviousTracks
+      responses:
+        200:
+          description: OK
+          schema:
+            $ref: '#/definitions/previous'
+      produces:
+        - application/json
+  /history/next:
+    get:
+      tags:
+        - history
+      summary: Get next track
+      operationId: getNextTrack
+      responses:
+        200:
+          description: OK
+          schema:
+            $ref: '#/definitions/next'
+      produces:
+        - application/json
+  /search:
+    get:
+      tags:
+        - search
+      summary: General search
+      operationId: getNextTrack
+      responses:
+        200:
+          description: OK
+          schema:
+            $ref: '#/definitions/search'
+      produces:
+        - application/json
+
+definitions:
+  track:
+    type: object
+    properties:
+      id:
+        type: string
+      title:
+        type: string
+      artists:
+        type: array
+        items:
+          type: string
+      album:
+        type: object
+        properties:
+          name:
+            type: string
+          art:
+            type: string
+          year:
+            type: number
+      duration:
+        type: number
+      explicit:
+        type: boolean
+      banned:
+        type: boolean
+      votes:
+        type: object
+        properties:
+          up:
+            type: number
+          down:
+            type: number
+          rank:
+            type: number
+  status:
+    type: object
+    properties:
+      track:
+        type: string
+        description: TrackID
+      progress:
+        type: number
+  next:
+    type: object
+    properties:
+      track:
+        type: string
+        description: TrackID
+      timestamp:
+        type: string
+        format: date-time
+  previous:
+    type: object
+    properties:
+      tracks:
+        type: array
+        items:
+          type: string
+          description: TrackID
+      timestamps:
+        type: array
+        items:
+          type: string
+          format: date-time
+  search:
+    type: object
+    properties:
+      tracks:
+        type: array
+        items:
+          type: string
+          description: TrackID
+      total:
+        type: number
+
+externalDocs:
+  description: 'Find out more about radio-rolnik API'
+  url: 'http://github.com/Maathias/radio-rolnik-api'
