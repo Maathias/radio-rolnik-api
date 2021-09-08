@@ -4,7 +4,9 @@ import { join } from 'path'
 import cookieParser from 'cookie-parser'
 import { createServer } from 'http'
 import fs from 'fs'
+
 import db from './db.js'
+import { byId } from './spotify.js'
 
 import track from './routes/track.js'
 import status from './routes/status.js'

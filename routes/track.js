@@ -1,5 +1,7 @@
 import express from 'express'
 
+import { byId } from '../spotify.js'
+
 const router = express.Router()
 
 router.get('/', (req, res) => {
@@ -7,7 +9,7 @@ router.get('/', (req, res) => {
 })
 
 router.get('/:id', (req, res) => {
-	res.send('track data')
+	byId(req.params.id).then((track) => res.send(track))
 })
 
 export default router

@@ -20,7 +20,7 @@ Get track metadata
 		art: String,
 		year: Number,
 	},
-	duration: Number,
+	duration: Number,	// milliseconds
 	explicit: Boolean,
 	banned: Boolean,
 	votes: {

@@ -1,5 +1,7 @@
 import express from 'express'
 
+import { byQuery } from '../spotify.js'
+
 const router = express.Router()
 
 router.get('/', (req, res) => {
@@ -7,7 +9,12 @@ router.get('/', (req, res) => {
 })
 
 router.get('/track/:query', (req, res) => {
-	res.send('tracks')
+	byQuery(req.params.query).then(({ tracks, total }) => {
+		res.send({
+			tracks,
+			total,
+		})
+	})
 })
 
 export default router
