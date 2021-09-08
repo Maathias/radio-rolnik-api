@@ -17,18 +17,17 @@ schemes:
   - http
   - https
 paths:
-  /track/{id}:
+  /track/{TrackID}:
     get:
       tags:
         - track
       summary: Get track by track id
       operationId: getTrackById
       parameters:
-        - name: id
+        - name: TrackID
           in: path
-          description: ID of track to return
           required: true
-          type: integer
+          type: string
       responses:
         200:
           description: OK
