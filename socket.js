@@ -41,6 +41,12 @@ wss.on('connection', function connection(ws) {
 				'6BfbSHE9ytCTF910g3wNdj',
 			],
 		},
+		{
+			cat: 'status',
+			trackid: '3OcyTN8Nz3bdne5aq9mMR5',
+			progress: 0,
+			paused: false,
+		},
 	])
 
 	ws.on('message', (message) => {
