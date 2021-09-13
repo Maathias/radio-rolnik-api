@@ -23,11 +23,23 @@ function byId(id) {
 	return new Promise((resolve, reject) => {
 		if (typeof id != 'string')
 			return reject(new Error('Incorrect id, must by type String'))
+		if (id.length < 22) return reject(new Error('Id too short'))
 
 		spotify
 			.getTrack(id)
-			.then((data) => {
-				resolve(new Track(data.body))
+			.then(({ body }) => {
+				let tdata = {
+					...body,
+					title: body.name,
+					artists: body.artists.map((a) => a.name),
+					album: {
+						name: body.album.name,
+						art: body.album.images[0].url,
+						year: body.album.release_date.slice(0, 4),
+					},
+					duration: body.duration_ms,
+				}
+				resolve(new Track(tdata))
 			})
 			.catch((err) => {
 				reject(err)
