@@ -1,18 +1,14 @@
 import dotenv from 'dotenv'
 import express, { json, urlencoded } from 'express'
-import { join } from 'path'
 import cookieParser from 'cookie-parser'
 import { createServer } from 'http'
-import fs from 'fs'
 
 import { broadcast } from './socket.js'
-import db from './db.js'
-import { byId } from './spotify.js'
 
 import track from './routes/track.js'
-import status from './routes/status.js'
 import history from './routes/history.js'
 import search from './routes/search.js'
+import vote from './routes/vote.js'
 
 dotenv.config()
 
@@ -25,9 +21,9 @@ app.use(cookieParser())
 app.set('port', process.env.portHttp)
 
 app.use('/track', track)
-app.use('/status', status)
 app.use('/history', history)
 app.use('/search', search)
+app.use('/vote', vote)
 
 www.listen(process.env.portHttp)
 
@@ -46,8 +42,8 @@ www.on('listening', function () {
 setInterval(() => {
 	broadcast({
 		cat: 'status',
-		trackid: '3OcyTN8Nz3bdne5aq9mMR5',
+		trackid: '2FBP8xsTWbJv3zjc1Dix0c',
 		progress: 20e3 + new Date().getMilliseconds(),
 		paused: false,
 	})
-}, 5e3)
+}, 10e3)

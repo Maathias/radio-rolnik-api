@@ -1,25 +1,15 @@
 class Track {
 	constructor(data) {
 		this.id = data.id
-		this.title = data.name
+		this.title = data.title
 
-		this.artists = data.artists.map((a) => a.name)
+		this.artists = data.artists
 
-		this.album = {
-			name: data.album.name,
-			art: data.album.images[0].url,
-			year: data.album.release_date.slice(0, 4),
-		}
+		this.album = data.album
 
-		this.duration = data.duration_ms
+		this.duration = data.duration
 		this.explicit = data.explicit
-		this.banned = false
-
-		this.votes = {
-			up: 100,
-			down: 50,
-			rank: 1,
-		}
+		this.banned = data.banned ?? false
 	}
 }
 
