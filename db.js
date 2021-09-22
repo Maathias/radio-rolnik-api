@@ -1,143 +1,48 @@
-import dotenv from 'dotenv'
-import mongoose from 'mongoose'
+import Jwt from 'jsonwebtoken'
 
-dotenv.config()
+import {
+	getTrack,
+	putTrack,
+	countTrackVotes,
+	getUserVote,
+	updateUserVote,
+	countAllVotes,
+	getUser,
+	putUser,
+	getQuery,
+	setQuery,
+} from './mongo.js'
 
-import { byId } from './spotify.js'
+import { byId, byQuery } from './spotify.js'
 import Track from './Track.js'
 
-import { Track as TrackModel } from './models/Track.js'
-import Vote from './models/Vote.js'
+import { DbError } from './errors.js'
 
-const { dbHost, dbPort, dbName, dbAuth, dbUser, dbPass } = process.env
-
-mongoose.connect(`mongodb://${dbHost}:${dbPort}/${dbName}`, {
-	user: dbUser,
-	pass: dbPass,
-	authSource: 'admin',
-	useNewUrlParser: true,
-	useUnifiedTopology: true,
-	useFindAndModify: false,
-})
-
-const database = mongoose.connection
-
-database.on('error', (err) => {
-	throw err
-})
-
-database.once('open', () => {
-	console.info(`db: connected`)
-})
-
-// #### #### #### ####
-// #### Tracks
-
-function getTrack(id) {
-	return new Promise((resolve, reject) => {
-		TrackModel.findOne({ id })
-			.then((track) => {
-				if (track === null) return reject(new Error(`Tracks: ${id} not found`))
-				resolve(track)
-			})
-			.catch((err) => {
-				reject(err)
-			})
-	})
+/**
+ * Get Track placement in Top
+ * @param {String} tid Track id
+ * @returns {Number} Track's # (>0)
+ */
+function getTrackRank(tid) {
+	const rank = topList.indexOf(tid)
+	if (rank === -1) return rank
+	else return rank + 1
 }
 
-function putTrack(track) {
-	return new Promise((resolve, reject) => {
-		TrackModel.create(track).then((tdata) => {
-			resolve(tdata)
-		})
-	})
-}
-
-// #### #### #### ####
-// #### Votes
-
-const timeValid = (() => {
-	switch (process.env.timeValid) {
-		default:
-		case 'monday':
-			var monday = new Date()
-			monday.setHours(0, 0, 0)
-			monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7))
-
-			return monday
-		case 'date':
-			let date = new Date(...JSON.parse(process.env.valid_date))
-			return date
-	}
-})()
-
-function getVotes(tid) {
-	return new Promise((resolve, reject) => {
-		Vote.find({ tid, createdAt: { $gt: timeValid } })
-			.then((votes) => {
-				resolve(votes)
-			})
-			.catch((err) => reject(err))
-	})
-}
-
-function countVotes(tid) {
-	return new Promise((resolve, reject) => {
-		getVotes(tid).then((votes) => {
-			let up = 0,
-				down = 0
-
-			for (let vote of votes) {
-				vote.value == 'up' && up++
-				vote.value == 'down' && down++
-			}
-
-			resolve({
-				up,
-				down,
-			})
-		})
-	})
-}
-
-function getUserVote(tid, uid) {
-	return new Promise((resolve, reject) => {
-		Vote.findOne({ tid, uid, createdAt: { $gt: timeValid } })
-			.then((vote) => resolve(vote))
-			.catch((err) => reject(err))
-	})
-}
-
-function updateUserVote(tid, uid, value) {
-	return new Promise((resolve, reject) => {
-		// check if vote already exists
-		getUserVote(tid, uid).then((vote) => {
-			if (vote) {
-				// vote exists
-				if (vote.value != value) {
-					// new value is different
-					Vote.updateOne({ _id: vote._id }, { value }).then((newVote) => {
-						// updated vote
-						resolve(!!newVote.ok)
-					})
-				} else {
-					// unchanged value
-					resolve(true)
-				}
-			} else {
-				// create new vote
-				Vote.create({ uid, tid, value }).then((newVote) => {
-					// created vote
-					resolve(!!newVote)
-				})
-			}
-		})
-	})
-}
+var topList = [],
+	lastTop = -1
 
 const db = {
+	/**
+	 * Methods for Track data
+	 */
 	tracks: {
+		/**
+		 * Get track by id.
+		 * DB first, then online
+		 * @param {String} id Track id
+		 * @returns {Promise<Track>} Track object
+		 */
 		get: (id) => {
 			return new Promise((resolve, reject) => {
 				// query db first
@@ -151,20 +56,117 @@ const db = {
 								resolve(track)
 							})
 							.catch((spotifyErr) => {
-								console.error(spotifyErr)
-								reject(new Error(`Could not retrieve track`))
+								reject(
+									new DbError('DbErrorNotFound', `Could not retrieve track`)
+								)
 							})
 					})
 			})
 		},
-		put: putTrack,
 	},
 	votes: {
-		getTrack: (tid) => {},
-		getTrackStats: countVotes,
-		getUser: (uid) => {},
+		/**
+		 * Get Track's stats.
+		 * @param {String} tid Track id
+		 * @returns {Promise<{}>} Votes up and down, rank
+		 */
+		getTrackStats: (tid) => {
+			return new Promise((resolve, reject) => {
+				countTrackVotes(tid)
+					.then((stats) => {
+						resolve({ ...stats, rank: getTrackRank(tid) })
+					})
+					.catch((err) => reject(err))
+			})
+		},
 		getUserTrack: getUserVote,
 		putUserTrack: updateUserVote,
+	},
+	users: {
+		getUser: getUser,
+		newUser: putUser,
+		/**
+		 * Verify token content
+		 * @param {String} jwt
+		 * @returns {Promise<{}>} Decoded token content (User data)
+		 */
+		verifyJwt: (jwt) => {
+			return new Promise((resolve, reject) => {
+				Jwt.verify(jwt ?? '', process.env.fbSecret, (err, decoded) => {
+					if (err) return reject(err)
+					resolve(decoded)
+				})
+			})
+		},
+	},
+	top: {
+		/**
+		 * Current Top tracks
+		 * @type {Array} Array of Track ids
+		 */
+		get list() {
+			return topList
+		},
+		/**
+		 * Last date topList was updated
+		 * @type {Number} Date().now
+		 */
+		get lastCount() {
+			return lastTop
+		},
+		/**
+		 * Get current Top tracks
+		 * @returns {Promise<[]>} Array of Track ids
+		 */
+		get: () => {
+			return new Promise((resolve, reject) => {
+				let now = new Date().getTime()
+
+				if (now - lastTop > 1e3) {
+					countAllVotes()
+						.then((top) => {
+							topList = top
+							lastTop = now
+							resolve(top)
+						})
+						.catch((err) => reject(err))
+				} else resolve(topList)
+			})
+		},
+		getTrackRank: getTrackRank,
+	},
+	search: {
+		query: (query) => {
+			return new Promise((resolve, reject) => {
+				const market = 'PL'
+				getQuery(query, market)
+					.then((search) => {
+						if (search === null) {
+							byQuery(query)
+								.then(({ tids, total }) => {
+									const out = {
+										query,
+										tids,
+										total,
+										market,
+									}
+
+									resolve(out)
+									setQuery(out)
+								})
+								.catch((err) => reject(err))
+						} else {
+							resolve({
+								query: search.query,
+								tids: search.tids,
+								total: search.total,
+								market: search.market,
+							})
+						}
+					})
+					.catch((err) => reject(err))
+			})
+		},
 	},
 }
 

@@ -11,6 +11,8 @@ class Track {
 		this.explicit = data.explicit
 		this.banned = data.banned ?? false
 	}
+
+	static idMinLength = 22
 }
 
 export default Track
