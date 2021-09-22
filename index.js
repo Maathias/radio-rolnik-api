@@ -4,11 +4,12 @@ import cookieParser from 'cookie-parser'
 import { createServer } from 'http'
 
 import { broadcast } from './socket.js'
+import db from './db.js'
 
 import track from './routes/track.js'
-import history from './routes/history.js'
 import search from './routes/search.js'
 import vote from './routes/vote.js'
+import login from './routes/login.js'
 
 dotenv.config()
 
@@ -21,9 +22,9 @@ app.use(cookieParser())
 app.set('port', process.env.portHttp)
 
 app.use('/track', track)
-app.use('/history', history)
 app.use('/search', search)
 app.use('/vote', vote)
+app.use('/login', login)
 
 www.listen(process.env.portHttp)
 
@@ -32,18 +33,29 @@ www.on('error', function (error) {
 		throw error
 	}
 
-	console.log(`Error: port ${process.env.portHttp}: ${error.code}`)
+	console.info(`Error: port ${process.env.portHttp}: ${error.code}`)
 })
 
 www.on('listening', function () {
-	console.log(`www: listening on ${process.env.portHttp}`)
+	console.info(`www: listening on ${process.env.portHttp}`)
 })
 
-setInterval(() => {
-	broadcast({
-		cat: 'status',
-		trackid: '2FBP8xsTWbJv3zjc1Dix0c',
-		progress: 20e3 + new Date().getMilliseconds(),
-		paused: false,
-	})
+var i = 0
+
+setInterval(async () => {
+	broadcast([
+		{
+			cat: 'status',
+			trackid: db.top.list[i],
+			progress: 20e3 + new Date().getMilliseconds(),
+			paused: false,
+		},
+		{
+			cat: 'top',
+			trackids: await db.top.get(),
+			timestamp: db.top.lastCount,
+		},
+	])
+	i++
+	if (i >= db.top.list.length) i = 0
 }, 10e3)

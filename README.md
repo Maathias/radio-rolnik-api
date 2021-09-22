@@ -8,7 +8,13 @@ Backend server for radio-rolnik
 
 Get track metadata
 
-`GET` `/track/:id` get track by track id
+---
+
+#### `GET` `/track/:id` get track
+
+Get track by track id
+
+`RESPONSE`
 
 ```javascript
 {
@@ -31,50 +37,220 @@ Get track metadata
 }
 ```
 
-### `/status`
+---
 
-Get currently playing track
+#### `POST` `/batch` get tracks
 
-`GET` `/status` get track, with additional metadata
+Get multiple tracks by track id
+
+`BODY`
 
 ```javascript
 {
-	track: TrackID,
-	progress: Number
+	tids: [TrackID...]
 }
 ```
 
-### `/history`
-
-Get previous and next tracks
-
-`GET` `/history/next` next track
+`RESPONSE`
 
 ```javascript
-{
-	track: TrackID,
-	timestamp: Date
-}
-```
-
-`GET` `/history/previous` next track
-
-```javascript
-{
-	tracks: [TrackID...],
-	timestamps: [Date...]
-}
+[
+	TrackID...
+]
 ```
 
 ### `/search`
 
 Search for tracks
 
-`GET` `/search` general search
+---
+
+#### `GET` `/search/track` track search
+
+Get a list of Track ids
+
+`QUERY`
 
 ```javascript
 {
-	tracks: [TrackID...],
+	query: String
+}
+```
+
+`RESPONSE`
+
+```javascript
+{
+	tids: [TrackID...],
 	total: Number
 }
+```
+
+### `/vote`
+
+Get and update vote values for tracks
+
+---
+
+#### `GET` `/vote/:id` get stats
+
+Get stats of a track.
+When access token is present, also get user's vote value
+
+`HEADERS`
+
+```javascript
+{
+	authorization: String
+}
+```
+
+`RESPONSE`
+
+```javascript
+{
+	up: Number,
+	down: Number,
+	rank: Number,
+	cast: String	// user's vote value for track. Only if authorized
+}
+```
+
+---
+
+#### `POST` `/vote/batch` get multiple stats
+
+Get stats of multiple tracks.
+When access token is present, also get user's vote value per TrackID
+
+`HEADERS`
+
+```javascript
+{
+	authorization: String
+}
+```
+
+`BODY`
+
+```javascript
+{
+	tids: [TrackID...]
+}
+```
+
+`RESPONSE`
+
+```javascript
+[
+	{
+		up: Number,
+		down: Number,
+		rank: Number,
+		cast: String	// user's vote value for track. Only if authorized
+	}...
+]
+```
+
+---
+
+#### `PATCH` `/vote/:tid` change vote value
+
+Changes user's vote for a track
+
+`HEADERS`
+
+```javascript
+{
+	authorization: String
+}
+```
+
+`BODY`
+
+```javascript
+{
+	value: String // 'up', 'down', '', 'report'
+}
+```
+
+`RESPONSE`
+
+```javascript
+true || false
+```
+
+### `/login`
+
+Login and fetch access token
+
+---
+
+#### `GET` `/login/token` get stats
+
+Exchange Facebook login code for an access token
+
+`QUERY`
+
+```javascript
+{
+	code: String
+}
+```
+
+`RESPONSE`
+
+```html
+<body>
+	Logowanie...
+</body>
+<script>
+	window.onload = function () {
+		opener.exit('<ACCESS TOKEN>')
+	}
+</script>
+```
+
+---
+
+## .env
+
+Enviroment variables required
+
+### Ports
+
+```ini
+portHttp=3010
+portWs=3020
+```
+
+### Spotify API
+
+```ini
+spotifyClientId=ID
+spotifyClientSecret=SECRET
+```
+
+### Facebok API
+
+```ini
+fbAppId=ID
+fbSecret=SECRET
+```
+
+### Mongo DB
+
+```ini
+dbHost=IP
+dbPort=PORT
+dbName=DB
+dbAuth=COLL
+dbUser=USER
+dbPass=PASSWORD
+```
+
+### Other
+
+```ini
+timeValid=monday
 ```
