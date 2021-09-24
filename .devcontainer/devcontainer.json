@@ -1,0 +1,15 @@
+{
+	"name": "radio-rolnik-api",
+	"dockerFile": "Dockerfile",
+	"appPort": [3000],
+	"runArgs": ["-u", "node"],
+	"settings": {
+		"terminal.integrated.profiles.linux": {
+			"zsh (login)": {
+				"path": "/bin/bash"
+			}
+		}
+	},
+	"postCreateCommand": "npm install",
+	"extensions": ["dbaeumer.vscode-eslint", "esbenp.prettier-vscode"]
+}
