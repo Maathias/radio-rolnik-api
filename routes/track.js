@@ -1,28 +1,36 @@
 import express from 'express'
 
-import { byId } from '../spotify.js'
 import db from '../db.js'
+import Track from '../Track.js'
 
 const router = express.Router()
 
-router.get('/', (req, res) => {
-	res.send('Get track metadata.')
+router.post('/batch/', ({ body: { tids } }, res) => {
+	if (tids === undefined) return res.status(400).end('Track ids array required')
+	if (tids.length < 1) return res.end([])
+
+	Promise.all(tids.map((tid) => db.tracks.get(tid)))
+		.then((tracks) => res.send(tracks))
+		.catch((err) => {
+			res.status(500).end('There was an error fetching tracks ')
+			console.error(err)
+		})
 })
 
-router.get('/:id', (req, res) => {
-	if (req.query.votes) {
-		return res.send({
-			set: 'down',
-			up: 20,
-			down: 10,
-		})
-	}
+router.get('/:id?', ({ params: { id } }, res) => {
+	if (id === undefined) return res.status(400).end('Track ID required')
+	if (id.length < Track.idMinLength)
+		return res.status(400).end('Track ID too short')
 
 	db.tracks
-		.get(req.params.id)
+		.get(id)
 		.then((track) => res.send(track))
 		.catch((err) => {
-			res.status(400).end()
+			if ((err.name = 'DbErrorNotFound'))
+				return res.status(404).end(err.message)
+			else res.status(500).end('There was an error fetching track data')
+
+			console.error(err)
 		})
 })
 

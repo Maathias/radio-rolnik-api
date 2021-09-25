@@ -1,12 +1,13 @@
 import dotenv from 'dotenv'
 import WebSocket, { WebSocketServer } from 'ws'
+import db from './db.js'
 
 dotenv.config()
 
 const port = process.env.portWs,
 	wss = new WebSocketServer({ port: port })
 
-console.log('ws: listening on ' + port)
+console.info('ws: listening on ' + port)
 
 function broadcast(data) {
 	wss.clients.forEach((client) => {
@@ -16,8 +17,8 @@ function broadcast(data) {
 	})
 }
 
-wss.on('connection', function connection(ws) {
-	console.log('connected')
+wss.on('connection', async function connection(ws, req) {
+	console.info(`socket # ${req.headers['x-real-ip']} + `)
 
 	function send(data) {
 		ws.send(JSON.stringify(data))
@@ -35,11 +36,8 @@ wss.on('connection', function connection(ws) {
 		},
 		{
 			cat: 'top',
-			trackids: [
-				'0VdSlJ7owUK1MuS8Kp7LdE',
-				'5svu5mLA4U2kdxPj1tLJ2I',
-				'6BfbSHE9ytCTF910g3wNdj',
-			],
+			trackids: await db.top.get(),
+			timestamp: db.top.lastCount,
 		},
 		{
 			cat: 'status',
@@ -49,13 +47,11 @@ wss.on('connection', function connection(ws) {
 		},
 	])
 
-	ws.on('message', (message) => {
-		console.log('received: %s', message)
-	})
+	ws.on('message', (message) => console.info('received: %s', message))
 
-	ws.on('close', (message) => {
-		console.log('disconnected')
-	})
+	ws.on('close', (message) =>
+		console.info(`socket # ${req.headers['x-real-ip']} - `)
+	)
 })
 
 export { wss, broadcast }
