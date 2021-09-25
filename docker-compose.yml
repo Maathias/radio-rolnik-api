@@ -2,12 +2,11 @@ version: '3.1'
 
 services:
   api:
-    image: radio-rolnik-api
-    # build: .
+    build: .
     restart: always
     environment:
       portHttp: 3010
-      dbHost: mongo
+      dbHost: db
       dbPort: 27017
       dbName: radio-rolnik
       dbAuth: admin
@@ -18,12 +17,12 @@ services:
       - 3010:3010
       - 3020:3020
     depends_on:
-      - mongo
+      - db
     links:
-      - mongo
-  mongo:
+      - db
+  db:
     image: mongo:4.4
-    container_name: mongo
+    container_name: db
     restart: always
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
