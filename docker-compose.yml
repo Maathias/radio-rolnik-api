@@ -13,6 +13,8 @@ services:
       dbUser: root
       dbPass: supersecurepassword123
       portWs: 3020
+      CACHE_HOST: cache
+      CACHE_PORT: 6379
     ports:
       - 3010:3010
       - 3020:3020
@@ -31,3 +33,11 @@ services:
       - ./database:/data/db
     ports:
       - 27017:27017
+  cache:
+    image: redis:6.2-alpine
+    container_name: cache
+    restart: always
+    environment:
+      ALLOW_EMPTY_PASSWORD: yes
+    ports:
+      - 6379:6379
