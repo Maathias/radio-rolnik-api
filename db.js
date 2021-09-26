@@ -1,4 +1,5 @@
 import Jwt from 'jsonwebtoken'
+import cache from './cache.js'
 
 import {
 	getTrack,
@@ -45,22 +46,33 @@ const db = {
 		 */
 		get: (id) => {
 			return new Promise((resolve, reject) => {
-				// query db first
-				getTrack(id)
-					.then((tdata) => resolve(new Track(tdata)))
-					.catch((dbErr) => {
-						// track not found in DB, fetch online
-						byId(id)
-							.then((track) => {
-								putTrack(track)
-								resolve(track)
+				// try to find in redis
+				cache.get(id).then((data) => {
+					if (data) {
+						resolve(JSON.parse(data))
+					} else {
+						// if not found, query db
+						getTrack(id)
+							.then((tdata) => {
+								cache.set(id, JSON.stringify(tdata))
+								resolve(new Track(tdata))
 							})
-							.catch((spotifyErr) => {
-								reject(
-									new DbError('DbErrorNotFound', `Could not retrieve track`)
-								)
+							.catch((dbErr) => {
+								// track not found in DB, fetch online
+								byId(id)
+									.then((track) => {
+										cache.set(id, JSON.stringify(track))
+										putTrack(track)
+										resolve(track)
+									})
+									.catch((spotifyErr) => {
+										reject(
+											new DbError('DbErrorNotFound', `Could not retrieve track`)
+										)
+									})
 							})
-					})
+					}
+				})
 			})
 		},
 	},
