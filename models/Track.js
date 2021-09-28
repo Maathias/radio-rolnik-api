@@ -7,7 +7,7 @@ const track = new mongoose.Schema(
 		artists: [String],
 		album: {
 			name: String,
-			art: String,
+			art: Array,
 			year: Number,
 		},
 		duration: Number, // milliseconds

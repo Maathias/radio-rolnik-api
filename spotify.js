@@ -1,10 +1,13 @@
+import dotenv from 'dotenv'
 import SpotifyWebApi from 'spotify-web-api-node'
 
 import Track from './Track.js'
 
+dotenv.config()
+
 const spotify = new SpotifyWebApi({
-	clientId: 'c9cd1ede71914999a75fbea35313c1a4',
-	clientSecret: '13858e98eb264cf78251072f2ea5e96d',
+	clientId: process.env.spotifyClientId,
+	clientSecret: process.env.spotifyClientSecret,
 })
 
 function grantToken() {
@@ -45,7 +48,7 @@ function byId(id) {
 						artists: body.artists.map((a) => a.name),
 						album: {
 							name: body.album.name,
-							art: body.album.images[0].url,
+							art: body.album.images,
 							year: body.album.release_date.slice(0, 4),
 						},
 						duration: body.duration_ms,

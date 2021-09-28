@@ -24,7 +24,7 @@ router.post(
 
 		if (tids === undefined)
 			return res.status(400).end('List of Track ids required')
-		if (tids.length < 1) return res.end([])
+		if (tids.length < 1) return res.json([])
 
 		Promise.all([
 			Promise.all(tids.map((tid) => db.votes.getTrackStats(tid))),
@@ -112,7 +112,7 @@ router.patch(
 				db.votes
 					.putUserTrack(tid, id, value)
 					.then((ok) => {
-						res.end(ok.toString())
+						res.json(ok.toString())
 						console.info(`vote# ${id} ${value} ${tid}`)
 					})
 					.catch((err) => {
@@ -121,7 +121,7 @@ router.patch(
 					})
 			})
 			.catch((err) => {
-				res.end('false')
+				res.json('false')
 				console.error(err)
 			})
 	}
