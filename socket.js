@@ -27,23 +27,20 @@ wss.on('connection', async function connection(ws, req) {
 	send([
 		{
 			cat: 'previous',
-			trackids: ['0VdSlJ7owUK1MuS8Kp7LdE', '5svu5mLA4U2kdxPj1tLJ2I'],
-			timestamps: ['2021-09-09T21:41:44.528Z', '2021-09-09T21:41:44.528Z'],
+			...db.current.previous,
 		},
 		{
 			cat: 'next',
-			trackid: '6BfbSHE9ytCTF910g3wNdj',
+			...db.current.next,
 		},
 		{
 			cat: 'top',
-			trackids: await db.top.get(),
+			tids: await db.top.get(),
 			timestamp: db.top.lastCount,
 		},
 		{
 			cat: 'status',
-			trackid: '3OcyTN8Nz3bdne5aq9mMR5',
-			progress: 0,
-			paused: false,
+			...db.current.status,
 		},
 	])
 
