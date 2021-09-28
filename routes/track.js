@@ -7,7 +7,7 @@ const router = express.Router()
 
 router.post('/batch/', ({ body: { tids } }, res) => {
 	if (tids === undefined) return res.status(400).end('Track ids array required')
-	if (tids.length < 1) return res.end([])
+	if (tids.length < 1) return res.send([])
 
 	Promise.all(tids.map((tid) => db.tracks.get(tid)))
 		.then((tracks) => res.send(tracks))
