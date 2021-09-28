@@ -48,7 +48,7 @@ function byId(id) {
 						artists: body.artists.map((a) => a.name),
 						album: {
 							name: body.album.name,
-							art: body.album.images[0].url,
+							art: body.album.images,
 							year: body.album.release_date.slice(0, 4),
 						},
 						duration: body.duration_ms,
