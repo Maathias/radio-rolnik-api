@@ -10,6 +10,7 @@ import track from './routes/track.js'
 import search from './routes/search.js'
 import vote from './routes/vote.js'
 import login from './routes/login.js'
+import player from './routes/player.js'
 
 dotenv.config()
 
@@ -25,6 +26,7 @@ app.use('/track', track)
 app.use('/search', search)
 app.use('/vote', vote)
 app.use('/login', login)
+app.use('/player', player)
 
 www.listen(process.env.portHttp)
 
@@ -42,20 +44,22 @@ www.on('listening', function () {
 
 var i = 0
 
-setInterval(async () => {
-	broadcast([
-		{
-			cat: 'status',
-			trackid: db.top.list[i],
-			progress: 20e3 + new Date().getMilliseconds(),
-			paused: false,
-		},
-		{
-			cat: 'top',
-			trackids: await db.top.get(),
-			timestamp: db.top.lastCount,
-		},
-	])
-	i++
-	if (i >= db.top.list.length) i = 0
-}, 10e3)
+// setInterval(async () => {
+// 	db.current.update([
+// 		{
+// 			cat: 'status',
+// 			content: {
+// 				tid: db.top.list[i],
+// 			},
+// 		},
+// 		{
+// 			cat: 'top',
+// 			content: {
+// 				tids: await db.top.get(),
+// 				timestamp: db.top.lastCount,
+// 			},
+// 		},
+// 	])
+// 	i++
+// 	if (i >= db.top.list.length) i = 0
+// }, 10e3)
