@@ -1,5 +1,4 @@
 import Jwt from 'jsonwebtoken'
-import cache from './cache.js'
 
 import {
 	getTrack,
@@ -13,6 +12,7 @@ import {
 	getQuery,
 	setQuery,
 } from './mongo.js'
+import redis from './redis.js'
 
 import { byId, byQuery } from './spotify.js'
 import Track from './Track.js'
@@ -36,19 +36,16 @@ function broadcast(cats) {
 }
 
 const current = {
-	next: { tid: '6BfbSHE9ytCTF910g3wNdj' },
+	next: { tid: null },
 	status: {
-		tid: '3OcyTN8Nz3bdne5aq9mMR5',
+		tid: null,
 		progress: 0,
-		duration: 29598,
-		paused: false,
+		duration: 0,
+		paused: true,
 		timestamp: new Date(),
 	},
 	previous: {
-		combo: [
-			['0VdSlJ7owUK1MuS8Kp7LdE', '2021-09-09T21:41:44.528Z'],
-			['5svu5mLA4U2kdxPj1tLJ2I', '2021-09-09T21:41:44.528Z'],
-		],
+		combo: [],
 	},
 }
 
@@ -71,21 +68,21 @@ const db = {
 		get: (id) => {
 			return new Promise((resolve, reject) => {
 				// try to find in redis
-				cache.get(id).then((data) => {
+				redis.get(id).then((data) => {
 					if (data) {
 						resolve(JSON.parse(data))
 					} else {
 						// if not found, query db
 						getTrack(id)
 							.then((tdata) => {
-								cache.set(id, JSON.stringify(tdata))
+								redis.set(id, JSON.stringify(tdata))
 								resolve(new Track(tdata))
 							})
 							.catch((dbErr) => {
 								// track not found in DB, fetch online
 								byId(id)
 									.then((track) => {
-										cache.set(id, JSON.stringify(track))
+										redis.set(id, JSON.stringify(track))
 										putTrack(track)
 										resolve(track)
 									})
@@ -128,7 +125,7 @@ const db = {
 		 */
 		verifyJwt: (jwt) => {
 			return new Promise((resolve, reject) => {
-				Jwt.verify(jwt ?? '', process.env.fbSecret, (err, decoded) => {
+				Jwt.verify(jwt ?? '', process.env.FB_SECRET, (err, decoded) => {
 					if (err) return reject(err)
 					resolve(decoded)
 				})
@@ -212,7 +209,12 @@ const db = {
 		},
 
 		set status(chunk) {
-			if (current.status.tid != chunk?.tid) {
+			console.log(
+				current.status.tid,
+				chunk?.tid,
+				current.status.tid != chunk?.tid && current.status.tid !== null
+			)
+			if (current.status.tid != chunk?.tid && current.status.tid !== null) {
 				// add new [tid, date]
 				current.previous.combo.unshift([
 					current.status.tid,

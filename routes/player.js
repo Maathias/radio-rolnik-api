@@ -15,14 +15,14 @@ function update(data) {
 	db.current.update(data)
 }
 
-const playerSecret = 'Bearer ' + process.env.playerSecret
+const playerSecret = 'Bearer ' + process.env.PLAYER_SECRET
 
 // set current track
 router.put(
 	'/set/status',
 	(
 		{
-			body: { tid, progress = null, duration = null, paused = null },
+			body: { tid = null, progress = null, duration = null, paused = null },
 			headers: { authorization },
 		},
 		res
@@ -33,9 +33,9 @@ router.put(
 		if (authorization != playerSecret)
 			return res.status(403).end('Token invalid')
 
-		if (tid === undefined) return res.status(400).end('"tid" field required')
-
-		if (tid.length < Track.length) return res.status(400).end('Invalid tid')
+		if (tid !== null)
+			if (typeof tid !== 'string')
+				return res.status(400).end('tid value invalid')
 
 		if (progress !== null)
 			if (typeof progress !== 'number')
@@ -52,7 +52,7 @@ router.put(
 		update({
 			cat: 'status',
 			content: {
-				tid,
+				...(tid !== null && { tid }),
 				...(progress !== null && { progress }),
 				...(duration !== null && { duration }),
 				...(paused !== null && { paused }),
@@ -75,8 +75,6 @@ router.put(
 
 		if (tid === undefined) return res.status(400).end('"tid" field required')
 
-		if (tid.length < Track.length) return res.status(400).end('Invalid tid')
-
 		update({
 			cat: 'next',
 			content: { tid },
@@ -96,7 +94,10 @@ router.get('/get/top/', ({ headers: { authorization } }, res) => {
 		Promise.all(
 			top.map((tid) => spotifyToYt.trackGet(`spotify:track:${tid}`))
 		).then((yts) => {
-			top.map((tid, i) => (yts[i].tid = tid))
+			top.map((tid, i) => {
+				yts[i].tid = tid
+				yts[i].info[0].duration = 10e3
+			})
 			res.json(yts)
 		})
 	})

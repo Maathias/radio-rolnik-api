@@ -8,11 +8,18 @@ import Vote from './models/Vote.js'
 import User from './models/User.js'
 import Search from './models/Search.js'
 
-const { dbHost, dbPort, dbName, dbAuth, dbUser, dbPass } = process.env
+const {
+	DB_HOST,
+	DB_PORT,
+	DB_NAME,
+	dbAuth = 'admin',
+	DB_USER,
+	DB_PASS,
+} = process.env
 
-mongoose.connect(`mongodb://${dbHost}:${dbPort}/${dbName}`, {
-	user: dbUser,
-	pass: dbPass,
+mongoose.connect(`mongodb://${DB_HOST}:${DB_PORT}/${DB_NAME}`, {
+	user: DB_USER,
+	pass: DB_PASS,
 	authSource: dbAuth,
 	useNewUrlParser: true,
 	useUnifiedTopology: true,
@@ -26,7 +33,7 @@ database.on('error', (err) => {
 })
 
 database.once('open', () => {
-	console.info(`db: connected`)
+	console.info(`mongo: connected`)
 })
 
 // #### Tracks #### #### #### #### #### #### #### ####
@@ -72,7 +79,7 @@ export { getTrack, putTrack }
  * @type Date
  */
 const timeValid = (() => {
-	switch (process.env.timeValid) {
+	switch (process.env.TOP_TIME_VALID) {
 		default:
 		case 'monday':
 			var monday = new Date()

@@ -4,7 +4,7 @@ import db from './db.js'
 
 dotenv.config()
 
-const port = process.env.portWs,
+const port = process.env.WS_PORT,
 	wss = new WebSocketServer({ port: port })
 
 console.info('ws: listening on ' + port)

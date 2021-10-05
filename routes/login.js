@@ -8,8 +8,8 @@ dotenv.config()
 
 const router = express.Router()
 
-const appId = process.env.fbAppId,
-	secret = process.env.fbSecret
+const appId = process.env.FB_APPID,
+	secret = process.env.FB_SECRET
 
 router.get('/token', ({ query: { code } }, res) => {
 	if (code === undefined) return res.status(400).end('Facebook code required')

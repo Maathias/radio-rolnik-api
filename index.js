@@ -15,12 +15,12 @@ import player from './routes/player.js'
 dotenv.config()
 
 var app = express(),
-	www = createServer(app)
+	http = createServer(app)
 
 app.use(json())
 app.use(urlencoded({ extended: false }))
 app.use(cookieParser())
-app.set('port', process.env.portHttp)
+app.set('port', process.env.HTTP_PORT)
 
 app.use('/track', track)
 app.use('/search', search)
@@ -28,18 +28,18 @@ app.use('/vote', vote)
 app.use('/login', login)
 app.use('/player', player)
 
-www.listen(process.env.portHttp)
+http.listen(process.env.HTTP_PORT)
 
-www.on('error', function (error) {
+http.on('error', function (error) {
 	if (error.syscall !== 'listen') {
 		throw error
 	}
 
-	console.info(`Error: port ${process.env.portHttp}: ${error.code}`)
+	console.info(`Error: port ${process.env.HTTP_PORT}: ${error.code}`)
 })
 
-www.on('listening', function () {
-	console.info(`www: listening on ${process.env.portHttp}`)
+http.on('listening', function () {
+	console.info(`http: listening on ${process.env.HTTP_PORT}`)
 })
 
 var i = 0

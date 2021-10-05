@@ -220,37 +220,37 @@ Enviroment variables required
 ### Ports
 
 ```ini
-portHttp=3010
-portWs=3020
+HTTP_PORT=3010
+WS_PORT=3020
 ```
 
 ### Spotify API
 
 ```ini
-spotifyClientId=ID
-spotifyClientSecret=SECRET
+SPOTIFY_CLIENT_ID=ID
+SPOTIFY_CLIENT_SECRET=SECRET
 ```
 
 ### Facebok API
 
 ```ini
-fbAppId=ID
-fbSecret=SECRET
+FB_APPID=ID
+FB_SECRET=SECRET
 ```
 
 ### Mongo DB
 
 ```ini
-dbHost=IP
-dbPort=PORT
-dbName=DB
-dbAuth=COLL
-dbUser=USER
-dbPass=PASSWORD
+DB_HOST=IP
+DB_PORT=PORT
+DB_NAME=DB
+DB_AUTH=COLL
+DB_USER=USER
+DB_PASS=PASSWORD
 ```
 
 ### Other
 
 ```ini
-timeValid=monday
+TOP_TIME_VALID=monday
 ```

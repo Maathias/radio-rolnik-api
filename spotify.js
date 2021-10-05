@@ -6,8 +6,8 @@ import Track from './Track.js'
 dotenv.config()
 
 const spotify = new SpotifyWebApi({
-	clientId: process.env.spotifyClientId,
-	clientSecret: process.env.spotifyClientSecret,
+	clientId: process.env.SPOTIFY_CLIENT_ID,
+	clientSecret: process.env.SPOTIFY_CLIENT_SECRET,
 })
 
 function grantToken() {
@@ -15,7 +15,7 @@ function grantToken() {
 		.clientCredentialsGrant()
 		.then(
 			function ({ body: { access_token, expires_in } }) {
-				console.info('spotify: access token granted ' + expires_in)
+				console.info('spotify: access token granted')
 
 				spotify.setAccessToken(access_token)
 
