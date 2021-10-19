@@ -217,10 +217,11 @@ Exchange Facebook login code for an access token
 
 Enviroment variables required
 
-### Ports
+### Ports and domains
 
 ```ini
 HTTP_PORT=3010
+HTTP_DOMAIN=radio.rolniknysa.pl
 WS_PORT=3020
 ```
 

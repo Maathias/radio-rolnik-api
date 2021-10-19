@@ -9,7 +9,7 @@ const hostName = process.env.CACHE_HOST
 const client = redis.createClient({ host: hostName, port })
 
 client.on('ready', function (error) {
-	console.error(`cache: connected`)
+	console.info(`cache: connected`)
 })
 
 const cache = {
