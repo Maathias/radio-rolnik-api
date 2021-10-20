@@ -4,27 +4,27 @@ services:
   api:
     build: .
     restart: always
+    container_name: api
     environment:
-      portHttp: 3010
-      dbHost: db
-      dbPort: 27017
-      dbName: radio-rolnik
-      dbAuth: admin
-      dbUser: root
-      dbPass: supersecurepassword123
-      portWs: 3020
-      CACHE_HOST: cache
+      HTTP_PORT: 3010
+      # WS_PORT: 3020
+      DB_HOST: mongo
+      DB_PORT: 27017
+      DB_NAME: radio-rolnik
+      DB_USER: root
+      DB_PASS: supersecurepassword123
+      CACHE_HOST: redis
       CACHE_PORT: 6379
     ports:
       - 3010:3010
       - 3020:3020
     depends_on:
-      - db
+      - mongo
     links:
-      - db
-  db:
-    image: mongo:4.4
-    container_name: db
+      - mongo
+  mongo:
+    image: mongo:5.0
+    container_name: mongo
     restart: always
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
@@ -33,11 +33,20 @@ services:
       - ./database:/data/db
     ports:
       - 27017:27017
-  cache:
+    command: --quiet
+  redis:
     image: redis:6.2-alpine
-    container_name: cache
+    container_name: redis
     restart: always
     environment:
-      ALLOW_EMPTY_PASSWORD: yes
+      ALLOW_EMPTY_PASSWORD: 'yes'
     ports:
       - 6379:6379
+  nginx:
+    image: nginx:1.21-alpine
+    container_name: nginx
+    restart: always
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+    ports:
+      - 80:80

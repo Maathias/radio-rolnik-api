@@ -8,11 +8,18 @@ import Vote from './models/Vote.js'
 import User from './models/User.js'
 import Search from './models/Search.js'
 
-const { dbHost, dbPort, dbName, dbAuth, dbUser, dbPass } = process.env
+const {
+	DB_HOST,
+	DB_PORT,
+	DB_NAME,
+	dbAuth = 'admin',
+	DB_USER,
+	DB_PASS,
+} = process.env
 
-mongoose.connect(`mongodb://${dbHost}:${dbPort}/${dbName}`, {
-	user: dbUser,
-	pass: dbPass,
+mongoose.connect(`mongodb://${DB_HOST}:${DB_PORT}/${DB_NAME}`, {
+	user: DB_USER,
+	pass: DB_PASS,
 	authSource: dbAuth,
 	useNewUrlParser: true,
 	useUnifiedTopology: true,
@@ -26,7 +33,7 @@ database.on('error', (err) => {
 })
 
 database.once('open', () => {
-	console.info(`db: connected`)
+	console.info(`mongo: connected`)
 })
 
 // #### Tracks #### #### #### #### #### #### #### ####
@@ -50,7 +57,7 @@ function getTrack(id) {
 /**
  * Add track to database
  * @param {Track} track new track
- * @returns {Object} tdata
+ * @returns {Promise<{}>} track data
  */
 function putTrack(track) {
 	return new Promise((resolve, reject) => {
@@ -62,7 +69,17 @@ function putTrack(track) {
 	})
 }
 
-export { getTrack, putTrack }
+/**
+ * Update track metadata
+ * @param {String} tid track id
+ * @param {*} newTdata values to update
+ * @returns {Promise<{}>} updated track
+ */
+function updateTrack(id, newTdata) {
+	return TrackModel.updateOne({ id }, newTdata)
+}
+
+export { getTrack, putTrack, updateTrack }
 
 // #### Votes #### #### #### ######## #### #### ####
 
@@ -72,8 +89,11 @@ export { getTrack, putTrack }
  * @type Date
  */
 const timeValid = (() => {
-	switch (process.env.timeValid) {
+	switch (process.env.TOP_TIME_VALID) {
 		default:
+		case 'period':
+			let now = new Date()
+			return new Date(now.getTime() - process.env.TOP_TIME_VALUE * 1e3)
 		case 'monday':
 			var monday = new Date()
 			monday.setHours(0, 0, 0)
@@ -81,7 +101,7 @@ const timeValid = (() => {
 
 			return monday
 		case 'date':
-			let date = new Date(...JSON.parse(process.env.valid_date))
+			let date = new Date(...JSON.parse(process.env.TOP_TIME_VALUE))
 			return date
 	}
 })()

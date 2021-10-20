@@ -2,6 +2,64 @@
 
 Backend server for radio-rolnik
 
+## Resources
+
+Website - https://github.com/Maathias/radio-rolnik/
+
+Player - https://github.com/Maathias/radio-rolnik-player/
+
+## .env
+
+Enviroment variables required
+
+### Ports and domains
+
+```ini
+HTTP_PORT=3010
+HTTP_DOMAIN=radio.rolniknysa.pl
+WS_PORT=3020
+```
+
+### Spotify API
+
+```ini
+SPOTIFY_CLIENT_ID=<ID>
+SPOTIFY_CLIENT_SECRET=<SECRET>
+```
+
+### Facebok API
+
+```ini
+FB_APPID=<ID>
+FB_SECRET=<SECRET>
+```
+
+### Mongo DB
+
+```ini
+DB_HOST=<IP>
+DB_PORT=<PORT>
+DB_NAME=<DB>
+DB_AUTH=<COLL>
+DB_USER=<USER>
+DB_PASS=<PASSWORD>
+```
+
+### Redis Cache
+
+```ini
+CACHE_HOST=<IP>
+CACHE_PORT=6379
+```
+
+### Other
+
+```ini
+PLAYER_SECRET=<SECRET>
+TOP_TIME_VALID=<monday,date,period>
+TOP_TIME_VALUE=<VALUE?>
+```
+
 ## Routes
 
 ### `/track`
@@ -212,45 +270,3 @@ Exchange Facebook login code for an access token
 ```
 
 ---
-
-## .env
-
-Enviroment variables required
-
-### Ports
-
-```ini
-portHttp=3010
-portWs=3020
-```
-
-### Spotify API
-
-```ini
-spotifyClientId=ID
-spotifyClientSecret=SECRET
-```
-
-### Facebok API
-
-```ini
-fbAppId=ID
-fbSecret=SECRET
-```
-
-### Mongo DB
-
-```ini
-dbHost=IP
-dbPort=PORT
-dbName=DB
-dbAuth=COLL
-dbUser=USER
-dbPass=PASSWORD
-```
-
-### Other
-
-```ini
-timeValid=monday
-```

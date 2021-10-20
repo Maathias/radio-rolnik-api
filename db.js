@@ -1,9 +1,9 @@
 import Jwt from 'jsonwebtoken'
-import cache from './cache.js'
 
 import {
 	getTrack,
 	putTrack,
+	updateTrack,
 	countTrackVotes,
 	getUserVote,
 	updateUserVote,
@@ -13,6 +13,7 @@ import {
 	getQuery,
 	setQuery,
 } from './mongo.js'
+import redis from './redis.js'
 
 import { byId, byQuery } from './spotify.js'
 import Track from './Track.js'
@@ -36,26 +37,24 @@ function broadcast(cats) {
 }
 
 const current = {
-	next: { tid: '6BfbSHE9ytCTF910g3wNdj' },
+	next: { tid: null },
 	status: {
-		tid: '3OcyTN8Nz3bdne5aq9mMR5',
+		tid: null,
 		progress: 0,
-		duration: 29598,
-		paused: false,
+		duration: 0,
+		paused: true,
 		timestamp: new Date(),
 	},
 	previous: {
-		combo: [
-			['0VdSlJ7owUK1MuS8Kp7LdE', '2021-09-09T21:41:44.528Z'],
-			['5svu5mLA4U2kdxPj1tLJ2I', '2021-09-09T21:41:44.528Z'],
-		],
+		combo: [],
 	},
 }
 
 const maxPrevious = 20
 
 var topList = [],
-	lastTop = -1
+	lastTop = -1,
+	votesSince = 0
 
 const db = {
 	/**
@@ -71,22 +70,21 @@ const db = {
 		get: (id) => {
 			return new Promise((resolve, reject) => {
 				// try to find in redis
-				cache.get(id).then((data) => {
+				redis.get(id).then((data) => {
 					if (data) {
 						resolve(JSON.parse(data))
 					} else {
 						// if not found, query db
 						getTrack(id)
 							.then((tdata) => {
-								cache.set(id, JSON.stringify(tdata))
+								redis.set(id, JSON.stringify(tdata))
 								resolve(new Track(tdata))
 							})
 							.catch((dbErr) => {
 								// track not found in DB, fetch online
 								byId(id)
 									.then((track) => {
-										cache.set(id, JSON.stringify(track))
-										putTrack(track)
+										putTrack(track).then((tdata) => redis.set(id, tdata))
 										resolve(track)
 									})
 									.catch((spotifyErr) => {
@@ -116,7 +114,12 @@ const db = {
 			})
 		},
 		getUserTrack: getUserVote,
-		putUserTrack: updateUserVote,
+		putUserTrack: (...params) => {
+			return updateUserVote(...params).then((ok) => {
+				if (ok) votesSince++
+				return ok
+			})
+		},
 	},
 	users: {
 		getUser: getUser,
@@ -128,7 +131,7 @@ const db = {
 		 */
 		verifyJwt: (jwt) => {
 			return new Promise((resolve, reject) => {
-				Jwt.verify(jwt ?? '', process.env.fbSecret, (err, decoded) => {
+				Jwt.verify(jwt ?? '', process.env.FB_SECRET, (err, decoded) => {
 					if (err) return reject(err)
 					resolve(decoded)
 				})
@@ -150,23 +153,35 @@ const db = {
 		get lastCount() {
 			return lastTop
 		},
+
+		get changed() {
+			return
+		},
 		/**
 		 * Get current Top tracks
-		 * @returns {Promise<[]>} Array of Track ids
+		 * @returns {Promise<{}>} Array of Track ids and Fresh flag
 		 */
 		get: () => {
 			return new Promise((resolve, reject) => {
 				let now = new Date().getTime()
 
-				if (now - lastTop > 1e3) {
+				if (now - lastTop > 60e3 || votesSince >= 2) {
 					countAllVotes()
 						.then((top) => {
-							topList = top
-							lastTop = now
-							resolve(top)
+							return Promise.all(top.map((tid) => getTrack(tid)))
+						})
+						.then((top) => {
+							return top.filter(({ banned }) => !banned).map(({ id }) => id)
+						})
+						.then((top) => {
+							topList = top // update the list
+							lastTop = now // update list timestamp
+							votesSince = 0 // reset number of votes since recount
+
+							resolve({ top, fresh: true })
 						})
 						.catch((err) => reject(err))
-				} else resolve(topList)
+				} else resolve({ top: topList, fresh: false })
 			})
 		},
 		getTrackRank: getTrackRank,
@@ -212,15 +227,25 @@ const db = {
 		},
 
 		set status(chunk) {
-			if (current.status.tid != chunk?.tid) {
-				// add new [tid, date]
-				current.previous.combo.unshift([
-					current.status.tid,
-					current.status.timestamp,
-				])
-				// pop on overfill
-				if (current.previous.combo.length > maxPrevious)
-					current.previous.combo.pop()
+			// console.log(current.status.tid, chunk?.tid)
+			if (current.status.tid != chunk?.tid && current.status.tid) {
+				// skip duplicates
+				let last = current.previous.combo[0] ?? [null]
+
+				if (last[0] !== current.status.tid) {
+					// add new [tid, date]
+					current.previous.combo.unshift([
+						current.status.tid,
+						current.status.timestamp,
+					])
+
+					// pop on overfill
+					if (current.previous.combo.length > maxPrevious)
+						current.previous.combo.pop()
+
+					// broadcast change
+					broadcast(['previous'])
+				}
 			}
 
 			current.status = { ...current.status, ...chunk, timestamp: new Date() }
@@ -248,6 +273,10 @@ const db = {
 			return current.previous
 		},
 
+		set top(chunk) {
+			current.top = chunk
+		},
+
 		update(data) {
 			if (!Array.isArray(data)) data = [data]
 
@@ -256,6 +285,19 @@ const db = {
 			}
 
 			broadcast(data.map((chunk) => chunk.cat))
+		},
+	},
+	admin: {
+		ban: (tid) => {
+			return new Promise((resolve, reject) => {
+				updateTrack(tid, { banned: true })
+					.then((status) => {
+						getTrack(tid).then((tdata) => redis.set(tid, tdata))
+
+						resolve(status.nModified === 1)
+					})
+					.catch((err) => resolve(false))
+			})
 		},
 	},
 }

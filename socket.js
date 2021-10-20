@@ -4,7 +4,7 @@ import db from './db.js'
 
 dotenv.config()
 
-const port = process.env.portWs,
+const port = process.env.WS_PORT,
 	wss = new WebSocketServer({ port: port })
 
 console.info('ws: listening on ' + port)
@@ -35,7 +35,7 @@ wss.on('connection', async function connection(ws, req) {
 		},
 		{
 			cat: 'top',
-			tids: await db.top.get(),
+			tids: (await db.top.get()).top,
 			timestamp: db.top.lastCount,
 		},
 		{
