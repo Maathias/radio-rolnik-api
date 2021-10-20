@@ -90,13 +90,12 @@ router.get('/get/top/', ({ headers: { authorization } }, res) => {
 
 	if (authorization != playerSecret) return res.status(403).end('Token invalid')
 
-	db.top.get().then((top) => {
+	db.top.get().then(({ top }) => {
 		Promise.all(
 			top.map((tid) => spotifyToYt.trackGet(`spotify:track:${tid}`))
 		).then((yts) => {
 			top.map((tid, i) => {
 				yts[i].tid = tid
-				yts[i].info[0].duration = 10e3
 			})
 			res.json(yts)
 		})

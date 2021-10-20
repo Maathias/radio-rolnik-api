@@ -3,6 +3,7 @@ import Jwt from 'jsonwebtoken'
 import {
 	getTrack,
 	putTrack,
+	updateTrack,
 	countTrackVotes,
 	getUserVote,
 	updateUserVote,
@@ -52,7 +53,8 @@ const current = {
 const maxPrevious = 20
 
 var topList = [],
-	lastTop = -1
+	lastTop = -1,
+	votesSince = 0
 
 const db = {
 	/**
@@ -82,8 +84,7 @@ const db = {
 								// track not found in DB, fetch online
 								byId(id)
 									.then((track) => {
-										redis.set(id, JSON.stringify(track))
-										putTrack(track)
+										putTrack(track).then((tdata) => redis.set(id, tdata))
 										resolve(track)
 									})
 									.catch((spotifyErr) => {
@@ -113,7 +114,12 @@ const db = {
 			})
 		},
 		getUserTrack: getUserVote,
-		putUserTrack: updateUserVote,
+		putUserTrack: (...params) => {
+			return updateUserVote(...params).then((ok) => {
+				if (ok) votesSince++
+				return ok
+			})
+		},
 	},
 	users: {
 		getUser: getUser,
@@ -147,23 +153,35 @@ const db = {
 		get lastCount() {
 			return lastTop
 		},
+
+		get changed() {
+			return
+		},
 		/**
 		 * Get current Top tracks
-		 * @returns {Promise<[]>} Array of Track ids
+		 * @returns {Promise<{}>} Array of Track ids and Fresh flag
 		 */
 		get: () => {
 			return new Promise((resolve, reject) => {
 				let now = new Date().getTime()
 
-				if (now - lastTop > 1e3) {
+				if (now - lastTop > 60e3 || votesSince >= 2) {
 					countAllVotes()
 						.then((top) => {
-							topList = top
-							lastTop = now
-							resolve(top)
+							return Promise.all(top.map((tid) => getTrack(tid)))
+						})
+						.then((top) => {
+							return top.filter(({ banned }) => !banned).map(({ id }) => id)
+						})
+						.then((top) => {
+							topList = top // update the list
+							lastTop = now // update list timestamp
+							votesSince = 0 // reset number of votes since recount
+
+							resolve({ top, fresh: true })
 						})
 						.catch((err) => reject(err))
-				} else resolve(topList)
+				} else resolve({ top: topList, fresh: false })
 			})
 		},
 		getTrackRank: getTrackRank,
@@ -209,20 +227,25 @@ const db = {
 		},
 
 		set status(chunk) {
-			console.log(
-				current.status.tid,
-				chunk?.tid,
-				current.status.tid != chunk?.tid && current.status.tid !== null
-			)
-			if (current.status.tid != chunk?.tid && current.status.tid !== null) {
-				// add new [tid, date]
-				current.previous.combo.unshift([
-					current.status.tid,
-					current.status.timestamp,
-				])
-				// pop on overfill
-				if (current.previous.combo.length > maxPrevious)
-					current.previous.combo.pop()
+			// console.log(current.status.tid, chunk?.tid)
+			if (current.status.tid != chunk?.tid && current.status.tid) {
+				// skip duplicates
+				let last = current.previous.combo[0] ?? [null]
+
+				if (last[0] !== current.status.tid) {
+					// add new [tid, date]
+					current.previous.combo.unshift([
+						current.status.tid,
+						current.status.timestamp,
+					])
+
+					// pop on overfill
+					if (current.previous.combo.length > maxPrevious)
+						current.previous.combo.pop()
+
+					// broadcast change
+					broadcast(['previous'])
+				}
 			}
 
 			current.status = { ...current.status, ...chunk, timestamp: new Date() }
@@ -250,6 +273,10 @@ const db = {
 			return current.previous
 		},
 
+		set top(chunk) {
+			current.top = chunk
+		},
+
 		update(data) {
 			if (!Array.isArray(data)) data = [data]
 
@@ -258,6 +285,19 @@ const db = {
 			}
 
 			broadcast(data.map((chunk) => chunk.cat))
+		},
+	},
+	admin: {
+		ban: (tid) => {
+			return new Promise((resolve, reject) => {
+				updateTrack(tid, { banned: true })
+					.then((status) => {
+						getTrack(tid).then((tdata) => redis.set(tid, tdata))
+
+						resolve(status.nModified === 1)
+					})
+					.catch((err) => resolve(false))
+			})
 		},
 	},
 }

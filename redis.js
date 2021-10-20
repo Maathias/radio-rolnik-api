@@ -24,6 +24,9 @@ const cache = {
 		})
 	},
 	set: (key, value) => {
+		if (typeof value !== 'string') {
+			value = JSON.stringify(value)
+		}
 		client.set(key, value)
 	},
 }

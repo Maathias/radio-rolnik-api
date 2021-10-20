@@ -35,7 +35,7 @@ wss.on('connection', async function connection(ws, req) {
 		},
 		{
 			cat: 'top',
-			tids: await db.top.get(),
+			tids: (await db.top.get()).top,
 			timestamp: db.top.lastCount,
 		},
 		{

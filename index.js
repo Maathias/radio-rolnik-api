@@ -11,6 +11,7 @@ import search from './routes/search.js'
 import vote from './routes/vote.js'
 import login from './routes/login.js'
 import player from './routes/player.js'
+import admin from './routes/admin.js'
 
 dotenv.config()
 
@@ -27,6 +28,7 @@ app.use('/search', search)
 app.use('/vote', vote)
 app.use('/login', login)
 app.use('/player', player)
+app.use('/admin', admin)
 
 http.listen(process.env.HTTP_PORT)
 
@@ -42,24 +44,16 @@ http.on('listening', function () {
 	console.info(`http: listening on ${process.env.HTTP_PORT}`)
 })
 
-var i = 0
+setInterval(async () => {
+	let { top, fresh } = await db.top.get()
 
-// setInterval(async () => {
-// 	db.current.update([
-// 		{
-// 			cat: 'status',
-// 			content: {
-// 				tid: db.top.list[i],
-// 			},
-// 		},
-// 		{
-// 			cat: 'top',
-// 			content: {
-// 				tids: await db.top.get(),
-// 				timestamp: db.top.lastCount,
-// 			},
-// 		},
-// 	])
-// 	i++
-// 	if (i >= db.top.list.length) i = 0
-// }, 10e3)
+	if (fresh) {
+		db.current.update({
+			cat: 'top',
+			content: {
+				tids: top,
+				timestamp: db.top.lastCount,
+			},
+		})
+	}
+}, 2e3)

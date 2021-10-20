@@ -57,7 +57,7 @@ function getTrack(id) {
 /**
  * Add track to database
  * @param {Track} track new track
- * @returns {Object} tdata
+ * @returns {Promise<{}>} track data
  */
 function putTrack(track) {
 	return new Promise((resolve, reject) => {
@@ -69,7 +69,17 @@ function putTrack(track) {
 	})
 }
 
-export { getTrack, putTrack }
+/**
+ * Update track metadata
+ * @param {String} tid track id
+ * @param {*} newTdata values to update
+ * @returns {Promise<{}>} updated track
+ */
+function updateTrack(id, newTdata) {
+	return TrackModel.updateOne({ id }, newTdata)
+}
+
+export { getTrack, putTrack, updateTrack }
 
 // #### Votes #### #### #### ######## #### #### ####
 
@@ -81,6 +91,9 @@ export { getTrack, putTrack }
 const timeValid = (() => {
 	switch (process.env.TOP_TIME_VALID) {
 		default:
+		case 'period':
+			let now = new Date()
+			return new Date(now.getTime() - process.env.TOP_TIME_VALUE * 1e3)
 		case 'monday':
 			var monday = new Date()
 			monday.setHours(0, 0, 0)
@@ -88,7 +101,7 @@ const timeValid = (() => {
 
 			return monday
 		case 'date':
-			let date = new Date(...JSON.parse(process.env.valid_date))
+			let date = new Date(...JSON.parse(process.env.TOP_TIME_VALUE))
 			return date
 	}
 })()
