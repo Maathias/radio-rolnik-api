@@ -1,9 +1,7 @@
 import dotenv from 'dotenv'
 import express from 'express'
-import spotifyToYt from 'spotify-to-yt'
 
 import db from '../db.js'
-import Track from '../Track.js'
 
 dotenv.config()
 
@@ -91,14 +89,7 @@ router.get('/get/top/', ({ headers: { authorization } }, res) => {
 	if (authorization != playerSecret) return res.status(403).end('Token invalid')
 
 	db.top.get().then(({ top }) => {
-		Promise.all(
-			top.map((tid) => spotifyToYt.trackGet(`spotify:track:${tid}`))
-		).then((yts) => {
-			top.map((tid, i) => {
-				yts[i].tid = tid
-			})
-			res.json(yts)
-		})
+		res.json(top)
 	})
 })
 
