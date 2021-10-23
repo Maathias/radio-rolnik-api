@@ -1,7 +1,4 @@
-import dotenv from 'dotenv'
 import redis from 'redis'
-
-dotenv.config()
 
 const port = process.env.CACHE_PORT
 const hostName = process.env.CACHE_HOST

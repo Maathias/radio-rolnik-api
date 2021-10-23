@@ -1,8 +1,5 @@
-import dotenv from 'dotenv'
 import WebSocket, { WebSocketServer } from 'ws'
 import db from './db.js'
-
-dotenv.config()
 
 const port = process.env.WS_PORT,
 	wss = new WebSocketServer({ port: port })

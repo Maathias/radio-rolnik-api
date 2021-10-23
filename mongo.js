@@ -1,7 +1,4 @@
-import dotenv from 'dotenv'
 import mongoose from 'mongoose'
-
-dotenv.config()
 
 import TrackModel from './models/Track.js'
 import Vote from './models/Vote.js'

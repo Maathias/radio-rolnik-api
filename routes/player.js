@@ -1,9 +1,6 @@
-import dotenv from 'dotenv'
 import express from 'express'
 
 import db from '../db.js'
-
-dotenv.config()
 
 const router = express.Router()
 
