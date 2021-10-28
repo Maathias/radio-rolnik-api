@@ -94,7 +94,7 @@ router.get(
 
 			morning.setHours(8, 0, 0, 0)
 
-			countAllVotes().then((tids) => {
+			countAllVotes(morning).then((tids) => {
 				res.json(tids)
 			})
 		} else if ((mode = 'rolling')) {
