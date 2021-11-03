@@ -1,12 +1,10 @@
-import dotenv from 'dotenv'
 import mongoose from 'mongoose'
-
-dotenv.config()
 
 import TrackModel from './models/Track.js'
 import Vote from './models/Vote.js'
 import User from './models/User.js'
 import Search from './models/Search.js'
+import Prev from './models/Previous.js'
 
 const {
 	DB_HOST,
@@ -88,23 +86,35 @@ export { getTrack, putTrack, updateTrack }
  * Oldest a vote can be
  * @type Date
  */
-const timeValid = (() => {
+const timeValid = (set) => {
 	switch (process.env.TOP_TIME_VALID) {
 		default:
-		case 'period':
-			let now = new Date()
-			return new Date(now.getTime() - process.env.TOP_TIME_VALUE * 1e3)
-		case 'monday':
+		case 'period': // constant period
+			let now = set ?? new Date(),
+				period = process.env.TOP_TIME_VALUE
+
+			if (now.getDay() == 1) {
+				let saturday = new Date(new Date().setDate(now.getDate() - 2))
+
+				saturday.setHours(0, 0, 0, 0)
+
+				return saturday
+			}
+
+			return new Date(now.getTime() - period * 1e3)
+
+		case 'monday': // beginning of the week
 			var monday = new Date()
 			monday.setHours(0, 0, 0)
 			monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7))
 
 			return monday
-		case 'date':
+
+		case 'date': // fixed date
 			let date = new Date(...JSON.parse(process.env.TOP_TIME_VALUE))
 			return date
 	}
-})()
+}
 
 /**
  * Fetch all valid votes for a track
@@ -113,7 +123,7 @@ const timeValid = (() => {
  */
 function getVotes(tid) {
 	return new Promise((resolve, reject) => {
-		Vote.find({ tid, createdAt: { $gt: timeValid } })
+		Vote.find({ tid, createdAt: { $gt: timeValid() } })
 			.then((votes) => {
 				resolve(votes)
 			})
@@ -141,6 +151,7 @@ function countTrackVotes(tid) {
 				resolve({
 					up,
 					down,
+					total: up - down,
 				})
 			})
 			.catch((err) => reject(err))
@@ -159,7 +170,7 @@ function getUserVote(tid, uid) {
 			tid,
 			uid,
 			$or: [{ value: 'up' }, { value: 'down' }],
-			createdAt: { $gt: timeValid },
+			createdAt: { $gt: timeValid() },
 		})
 			.then((vote) => resolve(vote))
 			.catch((err) => reject(err))
@@ -210,10 +221,10 @@ function updateUserVote(tid, uid, value) {
  * Count votes per track and sort
  * @returns {Promise<[]>} sorted array of Track ids
  */
-function countAllVotes() {
+function countAllVotes(from) {
 	return new Promise((resolve, reject) => {
 		Vote.find({
-			createdAt: { $gt: timeValid },
+			createdAt: { $gt: timeValid(from), $lt: from ?? new Date() },
 			$or: [{ value: 'up' }, { value: 'down' }],
 		})
 			.then((votes) => {
@@ -226,11 +237,7 @@ function countAllVotes() {
 					results[tid] += value
 				}
 
-				const keysSorted = Object.keys(results).sort(function (a, b) {
-					return results[b] - results[a]
-				})
-
-				resolve(keysSorted)
+				resolve(results)
 			})
 			.catch((err) => reject(err))
 	})
@@ -307,3 +314,28 @@ function setQuery(data) {
 }
 
 export { getQuery, setQuery }
+
+// #### Search #### #### #### #### #### #### #### ####
+
+function getPrevious(tid, from = timeValid(), to = new Date()) {
+	return Prev.findOne({ tid, createdAt: { $gt: from, $lt: to } })
+}
+
+function allPrevious(from = timeValid(), to = new Date()) {
+	return Prev.find({ createdAt: { $gt: from, $lt: to } }).sort({
+		createdAt: -1,
+	})
+}
+
+function countPrevious(tid, from = timeValid(), to = new Date()) {
+	return Prev.countDocuments({
+		tid,
+		createdAt: { $gt: from, $lt: to ?? new Date() },
+	})
+}
+
+function putPrevious(tid, timestamp) {
+	return Prev.create({ tid, timestamp })
+}
+
+export { getPrevious, allPrevious, countPrevious, putPrevious }

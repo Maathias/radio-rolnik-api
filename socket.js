@@ -1,8 +1,5 @@
-import dotenv from 'dotenv'
 import WebSocket, { WebSocketServer } from 'ws'
 import db from './db.js'
-
-dotenv.config()
 
 const port = process.env.WS_PORT,
 	wss = new WebSocketServer({ port: port })
@@ -35,7 +32,7 @@ wss.on('connection', async function connection(ws, req) {
 		},
 		{
 			cat: 'top',
-			tids: (await db.top.get()).top,
+			tids: db.top.list,
 			timestamp: db.top.lastCount,
 		},
 		{

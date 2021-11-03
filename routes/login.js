@@ -1,10 +1,7 @@
-import dotenv from 'dotenv'
 import express from 'express'
 import got from 'got'
 import Jwt from 'jsonwebtoken'
 import db from '../db.js'
-
-dotenv.config()
 
 const router = express.Router()
 

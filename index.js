@@ -1,4 +1,5 @@
-import dotenv from 'dotenv'
+import env from './env.js'
+
 import express, { json, urlencoded } from 'express'
 import cookieParser from 'cookie-parser'
 import { createServer } from 'http'
@@ -12,8 +13,6 @@ import vote from './routes/vote.js'
 import login from './routes/login.js'
 import player from './routes/player.js'
 import admin from './routes/admin.js'
-
-dotenv.config()
 
 var app = express(),
 	http = createServer(app)
@@ -44,16 +43,16 @@ http.on('listening', function () {
 	console.info(`http: listening on ${process.env.HTTP_PORT}`)
 })
 
-setInterval(async () => {
-	let { top, fresh } = await db.top.get()
-
-	if (fresh) {
-		db.current.update({
-			cat: 'top',
-			content: {
-				tids: top,
-				timestamp: db.top.lastCount,
-			},
-		})
-	}
+setInterval(() => {
+	db.top.get().then(({ top, fresh }) => {
+		if (fresh) {
+			db.current.update({
+				cat: 'top',
+				content: {
+					tids: top,
+					timestamp: db.top.lastCount,
+				},
+			})
+		}
+	})
 }, 2e3)

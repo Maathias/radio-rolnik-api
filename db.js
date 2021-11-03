@@ -12,6 +12,11 @@ import {
 	putUser,
 	getQuery,
 	setQuery,
+	putPrevious,
+	getPrevious,
+	countPrevious,
+	timeValid,
+	allPrevious,
 } from './mongo.js'
 import redis from './redis.js'
 
@@ -32,9 +37,39 @@ function getTrackRank(tid) {
 	else return rank + 1
 }
 
+function parseTop(results) {
+	return new Promise(async (resolve, reject) => {
+		for (let tid in results) {
+			let track = await getTrack(tid)
+
+			if (results[tid] < 0) delete results[tid] // remove negative for negative points
+			if (track.banned) delete results[tid] // remove banned
+
+			let count = await countPrevious(tid, timeValid()) // count previous plays
+
+			if (count > 0) results[tid] = parseInt(results[tid] / (count + 1)) // halve points for every previous playback
+		}
+
+		const tids = Object.keys(results).sort(function (a, b) {
+			return results[b] - results[a]
+		})
+
+		resolve(tids)
+	})
+}
+
 function broadcast(cats) {
 	wsBroadcast(cats.map((cat) => ({ cat, ...current[cat] })))
 }
+
+export { getTrackRank, parseTop }
+
+const maxPrevious = 20,
+	staleTop = 3e3
+
+var topList = await countAllVotes().then((results) => parseTop(results)),
+	lastTop = -1,
+	votesSince = 0
 
 const current = {
 	next: { tid: null },
@@ -46,15 +81,11 @@ const current = {
 		timestamp: new Date(),
 	},
 	previous: {
-		combo: [],
+		combo: (await allPrevious())
+			.slice(0, maxPrevious)
+			.map(({ tid, timestamp }) => [tid, timestamp]),
 	},
 }
-
-const maxPrevious = 20
-
-var topList = [],
-	lastTop = -1,
-	votesSince = 0
 
 const db = {
 	/**
@@ -146,6 +177,7 @@ const db = {
 		get list() {
 			return topList
 		},
+
 		/**
 		 * Last date topList was updated
 		 * @type {Number} Date().now
@@ -154,9 +186,6 @@ const db = {
 			return lastTop
 		},
 
-		get changed() {
-			return
-		},
 		/**
 		 * Get current Top tracks
 		 * @returns {Promise<{}>} Array of Track ids and Fresh flag
@@ -165,14 +194,10 @@ const db = {
 			return new Promise((resolve, reject) => {
 				let now = new Date().getTime()
 
-				if (now - lastTop > 60e3 || votesSince >= 2) {
+				// update if stale
+				if (now - lastTop > staleTop || votesSince >= 2) {
 					countAllVotes()
-						.then((top) => {
-							return Promise.all(top.map((tid) => getTrack(tid)))
-						})
-						.then((top) => {
-							return top.filter(({ banned }) => !banned).map(({ id }) => id)
-						})
+						.then((results) => parseTop(results))
 						.then((top) => {
 							topList = top // update the list
 							lastTop = now // update list timestamp
@@ -227,17 +252,16 @@ const db = {
 		},
 
 		set status(chunk) {
-			// console.log(current.status.tid, chunk?.tid)
 			if (current.status.tid != chunk?.tid && current.status.tid) {
 				// skip duplicates
 				let last = current.previous.combo[0] ?? [null]
 
 				if (last[0] !== current.status.tid) {
-					// add new [tid, date]
-					current.previous.combo.unshift([
-						current.status.tid,
-						current.status.timestamp,
-					])
+					const { tid, timestamp } = current.status
+
+					current.previous.combo.unshift([tid, timestamp])
+
+					putPrevious(tid, timestamp)
 
 					// pop on overfill
 					if (current.previous.combo.length > maxPrevious)
@@ -299,6 +323,11 @@ const db = {
 					.catch((err) => resolve(false))
 			})
 		},
+	},
+	previous: {
+		put: putPrevious,
+		get: getPrevious,
+		count: countPrevious,
 	},
 }
 

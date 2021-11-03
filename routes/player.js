@@ -1,9 +1,7 @@
-import dotenv from 'dotenv'
 import express from 'express'
 
-import db from '../db.js'
-
-dotenv.config()
+import db, { parseTop } from '../db.js'
+import { countAllVotes } from '../mongo.js'
 
 const router = express.Router()
 
@@ -82,15 +80,29 @@ router.put(
 	}
 )
 
-router.get('/get/top/', ({ headers: { authorization } }, res) => {
-	if (authorization === undefined)
-		return res.status(401).end('Authorization required')
+router.get(
+	'/get/top/',
+	({ query: { mode = 'once' }, headers: { authorization } }, res) => {
+		if (authorization === undefined)
+			return res.status(401).end('Authorization required')
 
-	if (authorization != playerSecret) return res.status(403).end('Token invalid')
+		if (authorization != playerSecret)
+			return res.status(403).end('Token invalid')
 
-	db.top.get().then(({ top }) => {
-		res.json(top)
-	})
-})
+		if (mode === 'once') {
+			let morning = new Date()
+
+			morning.setHours(8, 0, 0, 0)
+
+			countAllVotes(morning).then((tids) => {
+				parseTop(tids).then((tids) => res.json(tids))
+			})
+		} else if ((mode = 'rolling')) {
+			db.top.get().then(({ top }) => {
+				res.json(top)
+			})
+		}
+	}
+)
 
 export default router
