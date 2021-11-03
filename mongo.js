@@ -4,6 +4,7 @@ import TrackModel from './models/Track.js'
 import Vote from './models/Vote.js'
 import User from './models/User.js'
 import Search from './models/Search.js'
+import Prev from './models/Previous.js'
 
 const {
 	DB_HOST,
@@ -92,7 +93,7 @@ const timeValid = (set) => {
 			let now = set ?? new Date(),
 				period = process.env.TOP_TIME_VALUE
 
-			if (now.getDay() == 6) {
+			if (now.getDay() == 1) {
 				let saturday = new Date(new Date().setDate(now.getDate() - 2))
 
 				saturday.setHours(0, 0, 0, 0)
@@ -236,11 +237,7 @@ function countAllVotes(from) {
 					results[tid] += value
 				}
 
-				const keysSorted = Object.keys(results).sort(function (a, b) {
-					return results[b] - results[a]
-				})
-
-				resolve(keysSorted)
+				resolve(results)
 			})
 			.catch((err) => reject(err))
 	})
@@ -317,3 +314,28 @@ function setQuery(data) {
 }
 
 export { getQuery, setQuery }
+
+// #### Search #### #### #### #### #### #### #### ####
+
+function getPrevious(tid, from = timeValid(), to = new Date()) {
+	return Prev.findOne({ tid, createdAt: { $gt: from, $lt: to } })
+}
+
+function allPrevious(from = timeValid(), to = new Date()) {
+	return Prev.find({ createdAt: { $gt: from, $lt: to } }).sort({
+		createdAt: -1,
+	})
+}
+
+function countPrevious(tid, from = timeValid(), to = new Date()) {
+	return Prev.countDocuments({
+		tid,
+		createdAt: { $gt: from, $lt: to ?? new Date() },
+	})
+}
+
+function putPrevious(tid, timestamp) {
+	return Prev.create({ tid, timestamp })
+}
+
+export { getPrevious, allPrevious, countPrevious, putPrevious }

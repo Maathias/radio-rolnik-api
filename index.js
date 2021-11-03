@@ -43,16 +43,16 @@ http.on('listening', function () {
 	console.info(`http: listening on ${process.env.HTTP_PORT}`)
 })
 
-setInterval(async () => {
-	let { top, fresh } = await db.top.get()
-
-	if (fresh) {
-		db.current.update({
-			cat: 'top',
-			content: {
-				tids: top,
-				timestamp: db.top.lastCount,
-			},
-		})
-	}
+setInterval(() => {
+	db.top.get().then(({ top, fresh }) => {
+		if (fresh) {
+			db.current.update({
+				cat: 'top',
+				content: {
+					tids: top,
+					timestamp: db.top.lastCount,
+				},
+			})
+		}
+	})
 }, 2e3)

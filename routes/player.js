@@ -1,6 +1,6 @@
 import express from 'express'
 
-import db from '../db.js'
+import db, { parseTop } from '../db.js'
 import { countAllVotes } from '../mongo.js'
 
 const router = express.Router()
@@ -95,7 +95,7 @@ router.get(
 			morning.setHours(8, 0, 0, 0)
 
 			countAllVotes(morning).then((tids) => {
-				res.json(tids)
+				parseTop(tids).then((tids) => res.json(tids))
 			})
 		} else if ((mode = 'rolling')) {
 			db.top.get().then(({ top }) => {
