@@ -65,7 +65,8 @@ function broadcast(cats) {
 export { getTrackRank, parseTop }
 
 const maxPrevious = 20,
-	staleTop = 3e3
+	staleTop = 60e3,
+	staleAfterVotes = 2
 
 var topList = await countAllVotes().then((results) => parseTop(results)),
 	lastTop = -1,
@@ -195,7 +196,7 @@ const db = {
 				let now = new Date().getTime()
 
 				// update if stale
-				if (now - lastTop > staleTop || votesSince >= 2) {
+				if (now - lastTop > staleTop || votesSince >= staleAfterVotes) {
 					countAllVotes()
 						.then((results) => parseTop(results))
 						.then((top) => {
