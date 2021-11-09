@@ -13,6 +13,7 @@ import vote from './routes/vote.js'
 import login from './routes/login.js'
 import player from './routes/player.js'
 import admin from './routes/admin.js'
+import code from './routes/code.js'
 
 var app = express(),
 	http = createServer(app)
@@ -28,6 +29,7 @@ app.use('/vote', vote)
 app.use('/login', login)
 app.use('/player', player)
 app.use('/admin', admin)
+app.use('/code', code)
 
 http.listen(process.env.HTTP_PORT)
 
