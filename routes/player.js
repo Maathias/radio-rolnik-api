@@ -1,7 +1,7 @@
 import express from 'express'
 
 import db, { parseTop } from '../db.js'
-import { countAllVotes } from '../mongo.js'
+import { countAllVotes } from '../mongo/votes.js'
 
 const router = express.Router()
 

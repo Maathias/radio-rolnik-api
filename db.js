@@ -1,23 +1,25 @@
 import Jwt from 'jsonwebtoken'
 
+import database from './mongo.js'
+
 import {
-	getTrack,
-	putTrack,
-	updateTrack,
+	timeValid,
 	countTrackVotes,
 	getUserVote,
 	updateUserVote,
 	countAllVotes,
-	getUser,
-	putUser,
-	getQuery,
-	setQuery,
-	putPrevious,
+} from './mongo/votes.js'
+import {
 	getPrevious,
-	countPrevious,
-	timeValid,
 	allPrevious,
-} from './mongo.js'
+	countPrevious,
+	putPrevious,
+} from './mongo/previous.js'
+import { getQuery, setQuery } from './mongo/search.js'
+import { getTrack, putTrack, updateTrack } from './mongo/tracks.js'
+import { getUser, putUser } from './mongo/users.js'
+import { getCode } from './mongo/codes.js'
+
 import redis from './redis.js'
 
 import { byId, byQuery } from './spotify.js'
