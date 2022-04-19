@@ -1,9 +1,9 @@
 import redis from 'redis'
+import env from './env.js'
 
-const port = process.env.CACHE_PORT
-const hostName = process.env.CACHE_HOST
+const { CACHE_PORT: port, CACHE_HOST: host } = env
 
-const client = redis.createClient({ host: hostName, port })
+const client = redis.createClient({ host, port })
 
 client.on('ready', function (error) {
 	console.info(`cache: connected`)

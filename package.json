@@ -1,40 +1,41 @@
 {
-  "name": "radio-rolnik-api",
-  "version": "1.3.0",
-  "description": "rolniknysa radio",
-  "main": "index.js",
-  "type": "module",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon index"
-  },
-  "nodemonConfig": {
-    "ignore": [
-      "public/",
-      "*.json"
-    ]
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/Maathias/radio-rolnik-api.git"
-  },
-  "author": "Mateusz Pstrucha",
-  "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/Maathias/radio-rolnik-api/issues"
-  },
-  "homepage": "https://github.com/Maathias/radio-rolnik-api#readme",
-  "dependencies": {
-    "body-parser": "^1.19.0",
-    "cookie-parser": "^1.4.5",
-    "dotenv": "^8.2.0",
-    "express": "^4.17.1",
-    "got": "^11.8.2",
-    "jsonwebtoken": "^8.5.1",
-    "mongoose": "^5.13.9",
-    "nodemon": "^2.0.13",
-    "redis": "^3.1.2",
-    "spotify-web-api-node": "^5.0.2",
-    "ws": "^8.2.2"
-  }
+	"name": "radio-rolnik-api",
+	"version": "1.3.0",
+	"description": "rolniknysa radio",
+	"main": "index.js",
+	"type": "module",
+	"scripts": {
+		"test": "echo \"Error: no test specified\" && exit 1",
+		"dev": "NODE_ENV=development nodemon index",
+		"start": "node index.js"
+	},
+	"nodemonConfig": {
+		"ignore": [
+			"public/",
+			"*.json"
+		]
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/Maathias/radio-rolnik-api.git"
+	},
+	"author": "Mateusz Pstrucha",
+	"license": "ISC",
+	"bugs": {
+		"url": "https://github.com/Maathias/radio-rolnik-api/issues"
+	},
+	"homepage": "https://github.com/Maathias/radio-rolnik-api#readme",
+	"dependencies": {
+		"body-parser": "^1.19.2",
+		"cookie-parser": "^1.4.5",
+		"dotenv": "^16.0.0",
+		"express": "^4.17.3",
+		"got": "^12.0.1",
+		"jsonwebtoken": "^8.5.1",
+		"mongoose": "^6.2.10",
+		"nodemon": "^2.0.13",
+		"redis": "^3.1.2",
+		"spotify-web-api-node": "^5.0.2",
+		"ws": "^8.5.0"
+	}
 }

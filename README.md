@@ -4,269 +4,68 @@ Backend server for radio-rolnik
 
 ## Resources
 
-Website - https://github.com/Maathias/radio-rolnik/
+Frontend - [Maathias/radio-rolnik](https://github.com/Maathias/radio-rolnik/)
 
-Player - https://github.com/Maathias/radio-rolnik-player/
+Player - [Maathias/radio-rolnik-player](https://github.com/Maathias/radio-rolnik-player/)
 
 ## .env
 
-Enviroment variables required
+`.dev.env` will be loaded with `NODE_ENV=development`, otherwise 'production' is used by default.
 
-### Ports and domains
+`.env` file is required for production build. It should contain variables defined below.
+
+```ini
+HTTP_DOMAIN= <frontend domain>
+
+SPOTIFY_CLIENT_ID= <spotify api id>
+SPOTIFY_CLIENT_SECRET= <spotify api secret>
+
+PLAYER_SECRET= <remote player secret>
+
+FB_APPID= <facebook api id>
+FB_SECRET= <facebook api secret>
+```
+
+Some of the required variables is provided in `docker-compose.yml`
 
 ```ini
 HTTP_PORT=3010
-HTTP_DOMAIN=radio.rolniknysa.pl
 WS_PORT=3020
+
+<mongo and redis variables>
+...
 ```
 
-### Spotify API
+The rest can be probably left with default values
 
 ```ini
-SPOTIFY_CLIENT_ID=<ID>
-SPOTIFY_CLIENT_SECRET=<SECRET>
+DB_PORT= 27017,
+DB_AUTH= 'admin',
+
+TOP_TIME_VALID= 'period',
+TOP_TIME_VALUE= 604800,
+
+CACHE_PORT= 6379,
 ```
 
-### Facebok API
+## Usage
 
-```ini
-FB_APPID=<ID>
-FB_SECRET=<SECRET>
-```
+`yarn dev` for development, or 
+`yarn start` for running standalone.
+(Made on Node v16)
 
-### Mongo DB
+`docker-compose up` for running in a docker container. Make sure a `.env` file isn't missing before building.
 
-```ini
-DB_HOST=<IP>
-DB_PORT=<PORT>
-DB_NAME=<DB>
-DB_AUTH=<COLL>
-DB_USER=<USER>
-DB_PASS=<PASSWORD>
-```
+With default ports, the app assumes a nginx config:
 
-### Redis Cache
+ - frontend hosted on `/`
 
-```ini
-CACHE_HOST=<IP>
-CACHE_PORT=6379
-```
+ - `/api/` passed to `HTTP_PORT`
 
-### Other
+ - `/ws/` passed to `WS_PORT`
 
-```ini
-PLAYER_SECRET=<SECRET>
-TOP_TIME_VALID=<monday,date,period>
-TOP_TIME_VALUE=<VALUE?>
-```
+MongoDB data volume is mapped to `.data/mongo`
 
 ## Routes
 
-### `/track`
-
-Get track metadata
-
----
-
-#### `GET` `/track/:id` get track
-
-Get track by track id
-
-`RESPONSE`
-
-```javascript
-{
-	id: String,
-	title: String,
-	artists: [String...],
-	album: {
-		name: String,
-		art: String,
-		year: Number,
-	},
-	duration: Number,	// milliseconds
-	explicit: Boolean,
-	banned: Boolean,
-	votes: {
-		up: Number,
-		down: Number,
-		rank: Number,
-	},
-}
-```
-
----
-
-#### `POST` `/batch` get tracks
-
-Get multiple tracks by track id
-
-`BODY`
-
-```javascript
-{
-	tids: [TrackID...]
-}
-```
-
-`RESPONSE`
-
-```javascript
-[
-	TrackID...
-]
-```
-
-### `/search`
-
-Search for tracks
-
----
-
-#### `GET` `/search/track` track search
-
-Get a list of Track ids
-
-`QUERY`
-
-```javascript
-{
-	query: String
-}
-```
-
-`RESPONSE`
-
-```javascript
-{
-	tids: [TrackID...],
-	total: Number
-}
-```
-
-### `/vote`
-
-Get and update vote values for tracks
-
----
-
-#### `GET` `/vote/:id` get stats
-
-Get stats of a track.
-When access token is present, also get user's vote value
-
-`HEADERS`
-
-```javascript
-{
-	authorization: String
-}
-```
-
-`RESPONSE`
-
-```javascript
-{
-	up: Number,
-	down: Number,
-	rank: Number,
-	cast: String	// user's vote value for track. Only if authorized
-}
-```
-
----
-
-#### `POST` `/vote/batch` get multiple stats
-
-Get stats of multiple tracks.
-When access token is present, also get user's vote value per TrackID
-
-`HEADERS`
-
-```javascript
-{
-	authorization: String
-}
-```
-
-`BODY`
-
-```javascript
-{
-	tids: [TrackID...]
-}
-```
-
-`RESPONSE`
-
-```javascript
-[
-	{
-		up: Number,
-		down: Number,
-		rank: Number,
-		cast: String	// user's vote value for track. Only if authorized
-	}...
-]
-```
-
----
-
-#### `PATCH` `/vote/:tid` change vote value
-
-Changes user's vote for a track
-
-`HEADERS`
-
-```javascript
-{
-	authorization: String
-}
-```
-
-`BODY`
-
-```javascript
-{
-	value: String // 'up', 'down', '', 'report'
-}
-```
-
-`RESPONSE`
-
-```javascript
-true || false
-```
-
-### `/login`
-
-Login and fetch access token
-
----
-
-#### `GET` `/login/token` get stats
-
-Exchange Facebook login code for an access token
-
-`QUERY`
-
-```javascript
-{
-	code: String
-}
-```
-
-`RESPONSE`
-
-```html
-<body>
-	Logowanie...
-</body>
-<script>
-	window.onload = function () {
-		opener.exit('<ACCESS TOKEN>')
-	}
-</script>
-```
-
----
+API paths and responses are described in [routes.md](routes/routes.md)
