@@ -28,7 +28,7 @@ services:
       - 3020:3020
     
   mongo:
-    image: mongo:5.0
+    image: mongo:4.4
     container_name: radio-rolnik_mongo
     restart: always
     volumes:
