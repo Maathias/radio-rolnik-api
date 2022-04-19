@@ -2,12 +2,11 @@ import express from 'express'
 import got from 'got'
 import Jwt from 'jsonwebtoken'
 import db from '../db.js'
+import env from '../env.js'
 
 const router = express.Router()
 
-const appId = process.env.FB_APPID,
-	secret = process.env.FB_SECRET,
-	domain = process.env.HTTP_DOMAIN
+const { FB_APPID, FB_SECRET, HTTP_DOMAIN } = env
 
 router.get('/token', ({ query: { code } }, res) => {
 	if (code === undefined) return res.status(400).end('Facebook code required')
@@ -15,7 +14,7 @@ router.get('/token', ({ query: { code } }, res) => {
 		return res.status(400).end('Facebook code needs to be of non zero length')
 
 	got(
-		`https://graph.facebook.com/v12.0/oauth/access_token?client_id=${appId}&redirect_uri=https://${domain}/api/login/token&client_secret=${secret}&code=${code}`
+		`https://graph.facebook.com/v12.0/oauth/access_token?client_id=${FB_APPID}&redirect_uri=https://${HTTP_DOMAIN}/api/login/token&client_secret=${FB_SECRET}&code=${code}`
 	)
 		.json()
 		.then(({ access_token, expires_in }) => {
@@ -42,7 +41,7 @@ router.get('/token', ({ query: { code } }, res) => {
 									id,
 									perms,
 								},
-								jwt = Jwt.sign(payload, secret)
+								jwt = Jwt.sign(payload, FB_SECRET)
 
 							res.end(
 								[

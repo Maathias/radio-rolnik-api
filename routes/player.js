@@ -1,7 +1,10 @@
 import express from 'express'
 
 import db, { parseTop } from '../db.js'
+import env from '../env.js'
 import { countAllVotes } from '../mongo/votes.js'
+
+const { PLAYER_SECRET } = env
 
 const router = express.Router()
 
@@ -11,7 +14,7 @@ function update(data) {
 	db.current.update(data)
 }
 
-const playerSecret = 'Bearer ' + process.env.PLAYER_SECRET
+const playerSecret = 'Bearer ' + PLAYER_SECRET
 
 // set current track
 router.put(

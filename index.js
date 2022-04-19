@@ -4,7 +4,6 @@ import express, { json, urlencoded } from 'express'
 import cookieParser from 'cookie-parser'
 import { createServer } from 'http'
 
-import { broadcast } from './socket.js'
 import db from './db.js'
 
 import track from './routes/track.js'
@@ -15,13 +14,25 @@ import player from './routes/player.js'
 import admin from './routes/admin.js'
 import code from './routes/code.js'
 
+import database from './mongo.js'
+
+const { HTTP_PORT } = env
+
+database.on('error', (err) => {
+	throw err
+})
+
+database.once('open', () => {
+	console.info(`mongo: connected`)
+})
+
 var app = express(),
 	http = createServer(app)
 
 app.use(json())
 app.use(urlencoded({ extended: false }))
 app.use(cookieParser())
-app.set('port', process.env.HTTP_PORT)
+app.set('port', HTTP_PORT)
 
 app.use('/track', track)
 app.use('/search', search)
@@ -31,18 +42,18 @@ app.use('/player', player)
 app.use('/admin', admin)
 app.use('/code', code)
 
-http.listen(process.env.HTTP_PORT)
+http.listen(HTTP_PORT)
 
 http.on('error', function (error) {
 	if (error.syscall !== 'listen') {
 		throw error
 	}
 
-	console.info(`Error: port ${process.env.HTTP_PORT}: ${error.code}`)
+	console.info(`Error: port ${HTTP_PORT}: ${error.code}`)
 })
 
 http.on('listening', function () {
-	console.info(`http: listening on ${process.env.HTTP_PORT}`)
+	console.info(`http: listening on ${HTTP_PORT}`)
 })
 
 setInterval(() => {

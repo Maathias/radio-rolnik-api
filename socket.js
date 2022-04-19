@@ -1,8 +1,9 @@
 import WebSocket, { WebSocketServer } from 'ws'
 import db from './db.js'
+import env from './env.js'
 
-const port = process.env.WS_PORT,
-	wss = new WebSocketServer({ port: port })
+const { WS_PORT: port } = env,
+	wss = new WebSocketServer({ port })
 
 console.info('ws: listening on ' + port)
 

@@ -1,4 +1,7 @@
+import env from '../env.js'
 import Vote from '../models/Vote.js'
+
+const { TOP_TIME_VALID, TOP_TIME_VALUE } = env
 
 /**
  * Date range for valid tracks.
@@ -6,11 +9,11 @@ import Vote from '../models/Vote.js'
  * @type Date
  */
 const timeValid = (set) => {
-	switch (process.env.TOP_TIME_VALID) {
+	switch (TOP_TIME_VALID) {
 		default:
 		case 'period': // constant period
 			let now = set ?? new Date(),
-				period = process.env.TOP_TIME_VALUE
+				period = TOP_TIME_VALUE
 
 			if (now.getDay() == 1) {
 				let saturday = new Date(new Date().setDate(now.getDate() - 2))
@@ -30,7 +33,7 @@ const timeValid = (set) => {
 			return monday
 
 		case 'date': // fixed date
-			let date = new Date(...JSON.parse(process.env.TOP_TIME_VALUE))
+			let date = new Date(...JSON.parse(TOP_TIME_VALUE))
 			return date
 	}
 }

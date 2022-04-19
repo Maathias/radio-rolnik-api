@@ -1,7 +1,5 @@
 import Jwt from 'jsonwebtoken'
 
-import database from './mongo.js'
-
 import {
 	timeValid,
 	countTrackVotes,
@@ -27,6 +25,9 @@ import Track from './Track.js'
 import { broadcast as wsBroadcast } from './socket.js'
 
 import { DbError } from './errors.js'
+import env from './env.js'
+
+const { FB_SECRET } = env
 
 /**
  * Get Track placement in Top
@@ -165,7 +166,7 @@ const db = {
 		 */
 		verifyJwt: (jwt) => {
 			return new Promise((resolve, reject) => {
-				Jwt.verify(jwt ?? '', process.env.FB_SECRET, (err, decoded) => {
+				Jwt.verify(jwt ?? '', FB_SECRET, (err, decoded) => {
 					if (err) return reject(err)
 					resolve(decoded)
 				})
